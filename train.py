@@ -45,7 +45,7 @@ parser.add_argument('--num_workers', default=2, type=int, help='number of worker
 parser.add_argument('--rnn', default=1, type=int, help='number of RNN layers')
 parser.add_argument('--embeddings_storage_mode', default='gpu', choices=['none', 'cpu', 'gpu'],
                     help='embeddings storage mode')
-parser.add_argument('--embeddings', nargs='+', help='list of embeddings, e.g. flair-pl-forward', required=True)
+# parser.add_argument('--embeddings', nargs='+', help='list of embeddings, e.g. flair-pl-forward', required=True)
 parser.add_argument('--monitor_train', action='store_true', help='evaluate train data after every epoch')
 parser.add_argument('--tags', action='store_true', help='add maca tags as OneHot embeddings')
 parser.add_argument('--poss', action='store_true', help='add maca poses as OneHot embeddings')
@@ -99,7 +99,10 @@ tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
 print(tag_dictionary.idx2item)
 
 # initialize embeddings
-embedding_types: List[TokenEmbeddings] = [get_embeddings(name) for name in args.embeddings]
+embedding_types: List[TokenEmbeddings] = [
+    FlairEmbeddingsEnd('pl-forward'),
+    FlairEmbeddingsEnd('pl-backward'),
+]
 if args.tags:
     embedding_types.append(OneHotEmbeddings(corpus=corpus, field='tags', embedding_length=20))
 if args.poss:
