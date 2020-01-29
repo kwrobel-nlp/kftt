@@ -188,6 +188,7 @@ class KText:
             if token.end_offset is not None:
                 assert last_offset < token.end_offset
             form = token.form
+                      
             start_offset=text.index(form, last_offset)
             end_offset=start_offset+len(form)
             
@@ -208,3 +209,39 @@ class KText:
                     ambiguous_end_offsets.add(token.end_offset)
                     break
         return ambiguous_end_offsets
+
+    def fix_offsets2(self):
+        text = self.text
+        start_offsets = {}
+        end_offsets = {0: 0}
+        for token in self.tokens:
+            start_position = token.start_position
+            end_position = token.end_position
+            # print(start_position, end_position)
+            try:
+                previous_end_offset = end_offsets[start_position]
+                if text[previous_end_offset:previous_end_offset + len(token.form)] == token.form:
+                    token.space_before=False
+                elif text[previous_end_offset+1:previous_end_offset + 1 + len(token.form)] == token.form:
+                    token.space_before = True
+                    previous_end_offset += 1
+                
+                start_offsets[start_position] = previous_end_offset
+                token.start_offset = previous_end_offset
+
+                if text[previous_end_offset:previous_end_offset + len(token.form)] == token.form:
+                    end_offsets[end_position] = previous_end_offset + len(token.form)
+                    token.end_offset = previous_end_offset + len(token.form)
+                else:  # manually corrected tokenization introducing space before
+                    print('OMITTING token with different space before', 
+                          text[previous_end_offset:previous_end_offset + len(token.form)], token.form,
+                          file=sys.stderr)
+                    token.start_offset = None
+                    token.end_offset = None
+            except KeyError:
+                print('OMITTING node without incoming edges', token.form, file=sys.stderr)
+                token.start_offset = None
+                token.end_offset = None
+
+        # print(offsets.values())
+        del end_offsets[0]

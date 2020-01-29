@@ -94,3 +94,5 @@ if __name__ == '__main__':
         for path in sorted(glob.glob(args.file_path)):
             for ktext in read_xces(path, corpus_name=args.corpus_name, only_disamb=args.only_disamb):
                 writer.write(ktext.save())
+
+#TODO: no disamb or more than one disamb?
