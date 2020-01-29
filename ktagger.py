@@ -185,7 +185,8 @@ class KText:
         """Only for disambiguated text (with unambiguous segmentation)."""
         last_offset=0
         for token in self.tokens:
-            assert last_offset < token.end_offset
+            if token.end_offset is not None:
+                assert last_offset < token.end_offset
             form = token.form
             start_offset=text.index(form, last_offset)
             end_offset=start_offset+len(form)
