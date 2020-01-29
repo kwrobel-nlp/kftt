@@ -190,10 +190,11 @@ def convert_to_ktagger(path):
 parser = ArgumentParser(description='Train')
 parser.add_argument('path', help='path pattern to directory with DAG data')
 parser.add_argument('output_path', help='path JSONL output')
+parser.add_argument('corpus_name', help='corpus name')
 parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
 args = parser.parse_args()
 
-corpus = "poleval2020-devel"
+corpus = args.corpus_name
 
 with jsonlines.open(args.output_path, mode='w') as writer:
     for path in sorted(glob.glob(args.path)):

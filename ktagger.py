@@ -101,27 +101,33 @@ class KText:
         # 1. find token with the same lemma and positions
         found_token = False
         for token in self.tokens:
+            # print(token.save())
             if token.form == reference_token.form \
                     and token.start_offset == reference_token.start_offset \
                     and token.end_offset == reference_token.end_offset:
-                pass
+                # print('Found token', file=sys.stderr)
                 # 2. find interpretation
                 found_interpretation = False
                 for interpretation in token.interpretations:
                     if interpretation.lemma == reference_interpretation.lemma \
                             and interpretation.tag == reference_interpretation.tag:
+                        # print('Found interp', file=sys.stderr)
                         interpretation.disamb = True
                         assert reference_interpretation.manual == False
                         interpretation.manual = False
                         found_interpretation = True
                         break
                 if not found_interpretation:
+                    # print('NOT Found interp', file=sys.stderr)
                     assert reference_interpretation.manual == True
                     token.interpretations.append(reference_interpretation)
                 found_token = True
                 break
         if not found_token:
-            assert reference_interpretation.manual == True
+            # print('NOT Found token', reference_token.save(), file=sys.stderr)
+            if reference_interpretation.manual != True:
+                print('NOT Found token without manual marking', reference_token.save(), file=sys.stderr)
+                reference_interpretation.manual = True
             self.tokens.append(reference_token)
             reference_token.manual = True
 
@@ -172,3 +178,17 @@ class KText:
             if token.form != text[token.start_offset:token.end_offset]:
                 print('ERROR TOKEN OFFSET', f"{token.form} {text[token.start_offset:token.end_offset]}_",
                       file=sys.stderr)
+
+    def fix_offsets(self,text:str):
+        """Only for disambiguated text (with unambiguous segmentation)."""
+        last_offset=0
+        for token in self.tokens:
+            assert last_offset < token.end_offset
+            form = token.form
+            start_offset=text.index(form, last_offset)
+            end_offset=start_offset+len(form)
+            
+            token.start_offset=start_offset
+            token.end_offset=end_offset
+            
+            last_offset=end_offset
