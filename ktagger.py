@@ -78,6 +78,8 @@ class KToken:
                 self.sentence_end, self.start_position, self.end_position,
                 [interpretation.save_compact() for interpretation in self.interpretations]]
 
+    def has_disamb(self):
+        return any([interpretation.disamb for interpretation in self.interpretations])
 
 class KText:
     """Represents paragraph."""
@@ -192,3 +194,16 @@ class KText:
             token.end_offset=end_offset
             
             last_offset=end_offset
+            
+    def find_ambiguous_end_offsets(self):
+        ambiguous_end_offsets = set()
+        for token in self.tokens:
+            if token.end_offset is None: 
+                continue
+            for token2 in self.tokens:
+                if token2.start_offset is None or token2.end_offset is None:
+                    continue
+                if token2.start_offset < token.end_offset < token2.end_offset:
+                    ambiguous_end_offsets.add(token.end_offset)
+                    break
+        return ambiguous_end_offsets
