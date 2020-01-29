@@ -6,10 +6,12 @@ import os
 import sys
 from argparse import ArgumentParser
 
+import jsonlines as jsonlines
+
 from ktagger import KInterpretation, KToken, KText
 
 """
-Reads DAGs from Morfeusz (disambiguated or not).
+Reads DAGs from Morfeusz PolEval output (disambiguated or not).
 """
 
 TOKENS = 'tokens'
@@ -134,15 +136,7 @@ def original_text(paragraph):
 
     return ''.join(strings)
 
-
-parser = ArgumentParser(description='Train')
-parser.add_argument('path', help='path to directory with data')
-parser.add_argument('--only_disamb', action='store_true', help='print only disamb versions')
-args = parser.parse_args()
-
-corpus = "poleval2020-devel"
-
-for path in sorted(glob.glob(args.path)):
+def convert_to_ktagger(path):
     file_name = os.path.basename(path)
     paragraphs = read_dag(path)
     # print(path, len(paragraphs))
@@ -181,10 +175,27 @@ for path in sorted(glob.glob(args.path)):
 
         # print(ktext.save())
 
-        payload = json.loads(ktext.save())
+        payload = json.loads(ktext.save2())
         k = KText.load(payload)
         # print(k)
 
         # print(ktext.save())
         # print(k.save())
-        assert ktext.save() == k.save()
+        assert ktext.save2() == k.save2()
+        # print(payload)
+        assert payload == ktext.save()
+        yield ktext
+
+
+parser = ArgumentParser(description='Train')
+parser.add_argument('path', help='path pattern to directory with DAG data')
+parser.add_argument('output_path', help='path JSONL output')
+parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
+args = parser.parse_args()
+
+corpus = "poleval2020-devel"
+
+with jsonlines.open(args.output_path, mode='w') as writer:
+    for path in sorted(glob.glob(args.path)):
+        for ktext in convert_to_ktagger(path):
+            writer.write(ktext.save())
