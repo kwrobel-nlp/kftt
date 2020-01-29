@@ -36,10 +36,12 @@ def morfeusz_tokenize(text: str, original_ktext: KText):
 
 parser = ArgumentParser(description='Train')
 parser.add_argument('jsonl_path', help='path to JSONL for getting text')
+parser.add_argument('--dict_dir', default=None, help='path to directory with dict')
+parser.add_argument('--dict_name', default=None, help='dict name')
 parser.add_argument('output_path', help='path to merged JSONL')
 args = parser.parse_args()
 
-morfeusz = morfeusz2.Morfeusz(expand_tags=True)  # dict_name=None, dict_path=None
+morfeusz = morfeusz2.Morfeusz(generate=False, expand_tags=True, dict_name=args.dict_name, dict_path=args.dict_dir)  # dict_name=None, dict_path=None
 #--dict-dir /home/kwrobel/repos/poleval2020-task2/data/ --dict morfeusz-f19
 
 with jsonlines.open(args.jsonl_path) as reader, jsonlines.open(args.output_path, mode='w') as writer:

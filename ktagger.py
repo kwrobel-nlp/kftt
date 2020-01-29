@@ -47,7 +47,7 @@ class KToken:
         self.end_offset: int = end_offset
         self.start_position: int = start_position
         self.end_position: int = end_position
-        self.manual: bool = manual #manual segmentation
+        self.manual: bool = manual  # manual segmentation
 
     def add_interpretation(self, interpretation: KInterpretation):
         self.interpretations.append(interpretation)
@@ -81,6 +81,7 @@ class KToken:
     def has_disamb(self):
         return any([interpretation.disamb for interpretation in self.interpretations])
 
+
 class KText:
     """Represents paragraph."""
 
@@ -97,7 +98,15 @@ class KText:
         self.tokens.append(token)
 
     def add_reference_token(self, reference_token: KToken):
-        assert len(reference_token.interpretations) == 1
+        # assert len(reference_token.interpretations) == 1
+        if len(reference_token.interpretations) != 1:
+            if len(reference_token.interpretations) == 0:
+                ki = KInterpretation(reference_token.form, 'MASK', disamb=True, manual=True)
+                reference_token.add_interpretation(ki)
+            else:
+                print('More than one disamb', len(reference_token.interpretations), file=sys.stderr)
+            # return
+
         reference_interpretation = reference_token.interpretations[0]
         assert reference_interpretation.disamb == True
         # 1. find token with the same lemma and positions
@@ -115,7 +124,9 @@ class KText:
                             and interpretation.tag == reference_interpretation.tag:
                         # print('Found interp', file=sys.stderr)
                         interpretation.disamb = True
-                        assert reference_interpretation.manual == False
+                        if reference_interpretation.manual != False:  # or reference_interpretation.tag == 'MASK'
+                            pass
+                            # print('WARNING interpretation not marked as manual', file=sys.stderr)
                         interpretation.manual = False
                         found_interpretation = True
                         break
@@ -130,6 +141,10 @@ class KText:
             if reference_interpretation.manual != True:
                 print('NOT Found token without manual marking', reference_token.save(), file=sys.stderr)
                 reference_interpretation.manual = True
+
+            # choose one disamb interpretation if multiple disambs
+            reference_token.interpretations = reference_token.interpretations[0:1]
+
             self.tokens.append(reference_token)
             reference_token.manual = True
 
@@ -181,26 +196,31 @@ class KText:
                 print('ERROR TOKEN OFFSET', f"{token.form} {text[token.start_offset:token.end_offset]}_",
                       file=sys.stderr)
 
-    def fix_offsets(self,text:str):
+    def fix_offsets(self, text: str):
         """Only for disambiguated text (with unambiguous segmentation)."""
-        last_offset=0
+        last_offset = 0
         for token in self.tokens:
             if token.end_offset is not None:
                 assert last_offset < token.end_offset
             form = token.form
-                      
-            start_offset=text.index(form, last_offset)
-            end_offset=start_offset+len(form)
-            
-            token.start_offset=start_offset
-            token.end_offset=end_offset
-            
-            last_offset=end_offset
-            
+                    
+            try:
+                start_offset = text.index(form, last_offset)
+            except:
+                print(form, text, last_offset)
+            end_offset = start_offset + len(form)
+
+            token.start_offset = start_offset
+            token.end_offset = end_offset
+
+            last_offset = end_offset
+
+
+
     def find_ambiguous_end_offsets(self):
         ambiguous_end_offsets = set()
         for token in self.tokens:
-            if token.end_offset is None: 
+            if token.end_offset is None:
                 continue
             for token2 in self.tokens:
                 if token2.start_offset is None or token2.end_offset is None:
@@ -221,11 +241,11 @@ class KText:
             try:
                 previous_end_offset = end_offsets[start_position]
                 if text[previous_end_offset:previous_end_offset + len(token.form)] == token.form:
-                    token.space_before=False
-                elif text[previous_end_offset+1:previous_end_offset + 1 + len(token.form)] == token.form:
+                    token.space_before = False
+                elif text[previous_end_offset + 1:previous_end_offset + 1 + len(token.form)] == token.form:
                     token.space_before = True
                     previous_end_offset += 1
-                
+
                 start_offsets[start_position] = previous_end_offset
                 token.start_offset = previous_end_offset
 
@@ -233,7 +253,7 @@ class KText:
                     end_offsets[end_position] = previous_end_offset + len(token.form)
                     token.end_offset = previous_end_offset + len(token.form)
                 else:  # manually corrected tokenization introducing space before
-                    print('OMITTING token with different space before', 
+                    print('OMITTING token with different space before',
                           text[previous_end_offset:previous_end_offset + len(token.form)], token.form,
                           file=sys.stderr)
                     token.start_offset = None
