@@ -18,6 +18,7 @@ number_of_tokens=[]
 no_interps=0
 more_than_one_disamb=0
 no_disamb=0
+disamb=0
 more_than_one_disamb_but_all_same_tags=0
 with jsonlines.open(args.jsonl_path) as reader:
     for data in reader:
@@ -29,6 +30,8 @@ with jsonlines.open(args.jsonl_path) as reader:
                 print(token.save())
             if not token.has_disamb():
                 no_disamb+=1
+            else:
+                disamb+=1
             if len([interpretation for interpretation in token.interpretations if interpretation.disamb])>1:
                 more_than_one_disamb+=1
                 
@@ -48,9 +51,11 @@ with jsonlines.open(args.jsonl_path) as reader:
 
 print('ign:', len(igns))
 # print(igns)
+print('number of tokens', sum(number_of_tokens))
 print('avg number of tokens', sum(number_of_tokens)/len(number_of_tokens))
 print('no_interps:', no_interps)
 print('more_than_one_dismab:', more_than_one_disamb)
 print('more_than_one_disamb_but_all_same_tags:', more_than_one_disamb_but_all_same_tags)
 print('no_disamb:', no_disamb)
+print('disamb:', disamb)
 print('masks:', masks)

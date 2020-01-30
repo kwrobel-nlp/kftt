@@ -52,6 +52,7 @@ with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as 
             tags = end_offsets_tags[end_offset]
             poss = set([tag.split(':', 1)[0] for tag in tags])
 
-            writer.write("\t".join([segment, space, '_'.join(sorted(tags)), '_'.join(sorted(poss)), ktext.year, ambiguous, eot]))
+            # print([segment, space, '_'.join(sorted(tags)), '_'.join(sorted(poss)), ktext.year, ambiguous, eot])
+            writer.write("\t".join([segment, space, '_'.join(sorted(tags)), '_'.join(sorted(poss)), str(ktext.year), ambiguous, eot]))
             writer.write("\n")
         writer.write("\n")

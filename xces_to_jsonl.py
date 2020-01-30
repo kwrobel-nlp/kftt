@@ -88,6 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('file_path', type=str, help='path pattern to XCES corpus')
     parser.add_argument('corpus_name', help='corpus name')
     parser.add_argument('output_path', type=str, help='save path')
+    parser.add_argument('--year', default='20', type=str, help='first two digits of year of corpus, e.g. 20')
     parser.add_argument('--only_disamb', action='store_true',
                         help='save only disamb versions of tokens and interpretations')
     args = parser.parse_args()
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     with jsonlines.open(args.output_path, mode='w') as writer:
         for path in sorted(glob.glob(args.file_path)):
             for ktext in read_xces(path, corpus_name=args.corpus_name, only_disamb=args.only_disamb):
+                ktext.year=args.year
                 writer.write(ktext.save())
 
 #TODO: no disamb or more than one disamb?

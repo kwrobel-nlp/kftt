@@ -1,5 +1,6 @@
 import logging
 import random
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
@@ -18,24 +19,28 @@ from flair.embeddings import (
     OneHotEmbeddings)
 from flair.training_utils import EvaluationMetric, add_file_handler
 from flair.visual.training_curves import Plotter
+from torch.utils.data.dataset import ConcatDataset
 
 import tsv
 from helpers import get_embeddings
 from tokenization import FlairEmbeddingsEnd
 
-
-
-
-
-
 parser = ArgumentParser(description='Train')
+parser.add_argument('data_folder', help='directory with corpus files')
+parser.add_argument('train', help='train file name')
+parser.add_argument('test', help='test file name')
+parser.add_argument('--dev', default=None, help='dev file name')
+
+parser.add_argument('--corpora', nargs='+',
+                    help='list of corpora for calculating label and feature spaces (for retraining)', required=True)
+
 parser.add_argument('--output_folder', default='dot1', help='output folder for log and model')
 parser.add_argument('--seed', default=0, type=int, help='seed')
 parser.add_argument('--downsample', default=1.0, type=float, help='downsample ratio')
 parser.add_argument('--downsample_train', action='store_true', help='downsample only train')
 
 parser.add_argument('--hidden_size', default=256, type=int, help='size of embedding projection')
-#parser.add_argument('--pretrained_model', default=None, help='path to pretrained model')
+# parser.add_argument('--pretrained_model', default=None, help='path to pretrained model')
 parser.add_argument('--learning_rate', default=0.1, type=float, help='learning rate')
 parser.add_argument('--mini_batch_size', default=32, type=int, help='mini batch size')
 parser.add_argument('--mini_batch_chunk_size', default=32, type=int, help='mini batch size chunk')
@@ -69,30 +74,56 @@ torch.manual_seed(args.seed)
 random.seed(args.seed)
 np.random.seed(args.seed)
 
-
-
-
-
-
 # 1. get the corpus
-columns = {0: 'text', 1: 'space_before', 2: 'tags', 3:'poss', 4:'year', 5:'label'}
-#sample 10% of train as dev
-corpus: Corpus = tsv.TSVCorpus('new_data/', columns,
-                               train_file='train.tsv',
-                               test_file='devel.tsv',
-                               dev_file=None)
+columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous', 6: 'label'}
+# sample 10% of train as dev
 
-#TODO: poprawić whitespace_after
+# 2. what tag do we want to predict?
+tag_type = "label"
 
-#TODO: downsample - test 50% for trianig
+# multicorpus for calculating feature spaces
+
+cs=[]
+for c in args.corpora:
+    train = tsv.TSVDataset(
+        Path(c),
+        columns,
+        tag_to_bioes=None,
+        comment_symbol=None,
+        in_memory=True,
+        encoding="utf-8",
+        document_separator_token=None
+    )
+    cs.append(train)
+    print(train)
+    
+cd = ConcatDataset(cs)
+cc=Corpus(cd, flair.datasets.SentenceDataset([]), flair.datasets.SentenceDataset([]))
+tag_dictionary = cc.make_tag_dictionary(tag_type=tag_type)
+print(tag_dictionary.idx2item)
+# sys.exit()
+
+
+corpus: Corpus = tsv.TSVCorpus(args.data_folder, columns,
+                               train_file=args.train,
+                               test_file=args.test,
+                               dev_file=args.dev)
+
+# set whitespace_after
+for sentences in [corpus.train, corpus.dev, corpus.test]:
+    for sentence in sentences:
+        for i in range(1, len(sentence.tokens)):
+            token: Token = sentence.tokens[i]
+            token_before: Token = sentence.tokens[i - 1]
+            if token.get_tag('space_before').value == '0':
+                token_before.whitespace_after = False
+
+# TODO: downsample - test 50% for trianig
 # corpus.downsample(0.5, only_downsample_train=True)
 corpus = corpus.downsample(args.downsample, only_downsample_train=args.downsample_train)
 print(corpus)
 
 
-
-# 2. what tag do we want to predict?
-tag_type = "label"
 
 # 3. make the tag dictionary from the corpus
 tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
@@ -104,28 +135,30 @@ embedding_types: List[TokenEmbeddings] = [
     FlairEmbeddingsEnd('pl-backward'),
 ]
 if args.tags:
-    embedding_types.append(OneHotEmbeddings(corpus=corpus, field='tags', embedding_length=20))
+    embedding_types.append(OneHotEmbeddings(corpus=cc, field='tags', embedding_length=20))
 if args.poss:
-    embedding_types.append(OneHotEmbeddings(corpus=corpus, field='poss', embedding_length=10))
+    embedding_types.append(OneHotEmbeddings(corpus=cc, field='poss', embedding_length=10))
 if args.space:
-    embedding_types.append(OneHotEmbeddings(corpus=corpus, field='space_before', embedding_length=2))
-
-
+    embedding_types.append(OneHotEmbeddings(corpus=cc, field='space_before', embedding_length=2))
+if args.year:
+    embedding_types.append(OneHotEmbeddings(corpus=cc, field='year', embedding_length=2))
+    
 embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
 
-
+# TODO class weights
 
 # initialize sequence tagger
 from flair.models import SequenceTagger
 
-
 tagger: SequenceTagger = SequenceTagger(hidden_size=args.hidden_size,
-                                            embeddings=embeddings,
-                                            tag_dictionary=tag_dictionary,
-                                            tag_type=tag_type,
-                                            use_crf=False,
-                                            rnn_layers=args.rnn,
-                                            train_initial_hidden_state=args.train_initial_hidden_state)
+                                        embeddings=embeddings,
+                                        tag_dictionary=tag_dictionary,
+                                        tag_type=tag_type,
+                                        use_crf=True,
+                                        rnn_layers=args.rnn,
+                                        train_initial_hidden_state=args.train_initial_hidden_state,
+                                        loss_weights={'0': 10.}
+                                        )
 
 # initialize trainer
 from flair.trainers import ModelTrainer
