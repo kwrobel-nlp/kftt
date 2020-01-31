@@ -32,7 +32,7 @@ parser.add_argument('test', help='test file name')
 parser.add_argument('--dev', default=None, help='dev file name')
 
 parser.add_argument('--corpora', nargs='+',
-                    help='list of corpora for calculating label and feature spaces (for retraining)', required=True)
+                    help='list of corpora for calculating label and feature spaces (for retraining)')
 
 parser.add_argument('--output_folder', default='dot1', help='output folder for log and model')
 parser.add_argument('--seed', default=0, type=int, help='seed')
@@ -56,6 +56,8 @@ parser.add_argument('--tags', action='store_true', help='add maca tags as OneHot
 parser.add_argument('--poss', action='store_true', help='add maca poses as OneHot embeddings')
 parser.add_argument('--space', action='store_true', help='add space as embeddings')
 parser.add_argument('--year', action='store_true', help='add year as embeddings')
+parser.add_argument('--ambig', action='store_true', help='add ambiguous as embeddings')
+parser.add_argument('--crf', action='store_true', help='use CRF')
 parser.add_argument('--train_initial_hidden_state', action='store_true', help='train_initial_hidden_state')
 
 args = parser.parse_args()
@@ -83,8 +85,13 @@ tag_type = "label"
 
 # multicorpus for calculating feature spaces
 
+corpora_paths=set()
+if args.corpora is not None:
+    corpora_paths.update(args.corpora)
+corpora_paths.add(Path(args.data_folder) / args.train)
+
 cs=[]
-for c in args.corpora:
+for c in corpora_paths:
     train = tsv.TSVDataset(
         Path(c),
         columns,
@@ -142,6 +149,8 @@ if args.space:
     embedding_types.append(OneHotEmbeddings(corpus=cc, field='space_before', embedding_length=2))
 if args.year:
     embedding_types.append(OneHotEmbeddings(corpus=cc, field='year', embedding_length=2))
+if args.ambig:
+    embedding_types.append(OneHotEmbeddings(corpus=cc, field='ambiguous', embedding_length=2))
     
 embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
 
@@ -154,7 +163,7 @@ tagger: SequenceTagger = SequenceTagger(hidden_size=args.hidden_size,
                                         embeddings=embeddings,
                                         tag_dictionary=tag_dictionary,
                                         tag_type=tag_type,
-                                        use_crf=True,
+                                        use_crf=args.crf,
                                         rnn_layers=args.rnn,
                                         train_initial_hidden_state=args.train_initial_hidden_state,
                                         loss_weights={'0': 10.}
