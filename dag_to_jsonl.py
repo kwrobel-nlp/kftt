@@ -114,7 +114,7 @@ def dag_offsets(paragraph):
                 token[START_OFFSET] = None
                 token[END_OFFSET] = None
         except KeyError:
-            print('OMITTING node without incoming edges', token[SEGMENT], file=sys.stderr)
+            print('OMITTING node without incoming edges', path, token[SEGMENT], file=sys.stderr)
             token[START_OFFSET] = None
             token[END_OFFSET] = None
 

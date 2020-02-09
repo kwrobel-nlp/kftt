@@ -9,6 +9,7 @@ from ktagger import KText
 
 parser = ArgumentParser(description='')
 parser.add_argument('path', help='path to JSONL (plain or merged)')
+parser.add_argument('--longest', action='store_true', help='longest path')
 
 args = parser.parse_args()
 
@@ -24,7 +25,10 @@ def shortest_path(ktext: KText):
     for start_position, end_positions in sorted(start_positions.items()):
         if start_position!=last_position:
             continue
-        max_end_position=max(end_positions.keys())
+        if args.longest:
+            max_end_position = min(end_positions.keys())
+        else:
+            max_end_position=max(end_positions.keys())
         token = end_positions[max_end_position]
         tokens.append(token)
         last_position=token.end_position

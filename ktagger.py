@@ -227,6 +227,7 @@ class KText:
                     continue
                 if token2.start_offset < token.end_offset < token2.end_offset:
                     ambiguous_end_offsets.add(token.end_offset)
+                    token.ambiguous=True
                     break
         return ambiguous_end_offsets
 

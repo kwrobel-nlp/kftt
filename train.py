@@ -29,6 +29,8 @@ parser = ArgumentParser(description='Train')
 parser.add_argument('data_folder', help='directory with corpus files')
 parser.add_argument('train', help='train file name')
 parser.add_argument('test', help='test file name')
+parser.add_argument('--pretrained_model', help='path to pretrained model')
+
 parser.add_argument('--dev', default=None, help='dev file name')
 
 parser.add_argument('--corpora', nargs='+',
@@ -48,6 +50,7 @@ parser.add_argument('--max_epochs', default=300, type=int, help='max epochs')
 parser.add_argument('--patience', default=5, type=int, help='patience')
 parser.add_argument('--num_workers', default=2, type=int, help='number of workers')
 parser.add_argument('--rnn', default=1, type=int, help='number of RNN layers')
+parser.add_argument('--tag_type', default='label',help='tag type to predict')
 parser.add_argument('--embeddings_storage_mode', default='gpu', choices=['none', 'cpu', 'gpu'],
                     help='embeddings storage mode')
 # parser.add_argument('--embeddings', nargs='+', help='list of embeddings, e.g. flair-pl-forward', required=True)
@@ -58,7 +61,10 @@ parser.add_argument('--space', action='store_true', help='add space as embedding
 parser.add_argument('--year', action='store_true', help='add year as embeddings')
 parser.add_argument('--ambig', action='store_true', help='add ambiguous as embeddings')
 parser.add_argument('--crf', action='store_true', help='use CRF')
+parser.add_argument('--use_amp', action='store_true', help='use AMP')
+parser.add_argument('--amp_opt_level', default='O1', help='O1 or O2 for mixed precision')
 parser.add_argument('--train_initial_hidden_state', action='store_true', help='train_initial_hidden_state')
+parser.add_argument('--anneal_with_restarts', action='store_true', help='anneal_with_restarts')
 
 args = parser.parse_args()
 
@@ -81,7 +87,7 @@ columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'am
 # sample 10% of train as dev
 
 # 2. what tag do we want to predict?
-tag_type = "label"
+tag_type = args.tag_type
 
 # multicorpus for calculating feature spaces
 
@@ -133,41 +139,45 @@ print(corpus)
 
 
 # 3. make the tag dictionary from the corpus
-tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
-print(tag_dictionary.idx2item)
-
-# initialize embeddings
-embedding_types: List[TokenEmbeddings] = [
-    FlairEmbeddingsEnd('pl-forward'),
-    FlairEmbeddingsEnd('pl-backward'),
-]
-if args.tags:
-    embedding_types.append(OneHotEmbeddings(corpus=cc, field='tags', embedding_length=20))
-if args.poss:
-    embedding_types.append(OneHotEmbeddings(corpus=cc, field='poss', embedding_length=10))
-if args.space:
-    embedding_types.append(OneHotEmbeddings(corpus=cc, field='space_before', embedding_length=2))
-if args.year:
-    embedding_types.append(OneHotEmbeddings(corpus=cc, field='year', embedding_length=2))
-if args.ambig:
-    embedding_types.append(OneHotEmbeddings(corpus=cc, field='ambiguous', embedding_length=2))
-    
-embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
-
-# TODO class weights
-
-# initialize sequence tagger
 from flair.models import SequenceTagger
-
-tagger: SequenceTagger = SequenceTagger(hidden_size=args.hidden_size,
-                                        embeddings=embeddings,
-                                        tag_dictionary=tag_dictionary,
-                                        tag_type=tag_type,
-                                        use_crf=args.crf,
-                                        rnn_layers=args.rnn,
-                                        train_initial_hidden_state=args.train_initial_hidden_state,
-                                        loss_weights={'0': 10.}
-                                        )
+if args.pretrained_model:
+    tagger: SequenceTagger = SequenceTagger.load(args.pretrained_model)
+else:
+    tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
+    print(tag_dictionary.idx2item)
+    
+    # initialize embeddings
+    embedding_types: List[TokenEmbeddings] = [
+        FlairEmbeddingsEnd('pl-forward'),
+        FlairEmbeddingsEnd('pl-backward'),
+    ]
+    if args.tags:
+        embedding_types.append(OneHotEmbeddings(corpus=cc, field='tags', embedding_length=20))
+    if args.poss:
+        embedding_types.append(OneHotEmbeddings(corpus=cc, field='poss', embedding_length=10))
+    if args.space:
+        embedding_types.append(OneHotEmbeddings(corpus=cc, field='space_before', embedding_length=2))
+    if args.year:
+        embedding_types.append(OneHotEmbeddings(corpus=cc, field='year', embedding_length=2))
+    if args.ambig:
+        embedding_types.append(OneHotEmbeddings(corpus=cc, field='ambiguous', embedding_length=2))
+        
+    embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
+    
+    # TODO class weights
+    
+    # initialize sequence tagger
+    
+    
+    tagger: SequenceTagger = SequenceTagger(hidden_size=args.hidden_size,
+                                            embeddings=embeddings,
+                                            tag_dictionary=tag_dictionary,
+                                            tag_type=tag_type,
+                                            use_crf=args.crf,
+                                            rnn_layers=args.rnn,
+                                            train_initial_hidden_state=args.train_initial_hidden_state,
+                                            loss_weights={'0': 10.}
+                                            )
 
 # initialize trainer
 from flair.trainers import ModelTrainer
@@ -189,4 +199,8 @@ trainer.train(
     embeddings_storage_mode=args.embeddings_storage_mode,
     monitor_test=True,
     monitor_train=args.monitor_train,
-    save_final_model=False)
+    save_final_model=False,
+    use_amp=args.use_amp,
+    amp_opt_level=args.amp_opt_level,
+    anneal_with_restarts=args.anneal_with_restarts
+    )
