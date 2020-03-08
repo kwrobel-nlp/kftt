@@ -5,7 +5,7 @@ import jsonlines
 from ktagger import KText
 
 parser = ArgumentParser(
-    description='Merge JSONLs analyzed (output form Morfeusz) with disamb (reference data). Keep disamb sentence ends.')
+    description='Merge JSONLs analyzed (output form Morfeusz) with disamb (reference data). Keep disamb sentence ends. If a gold tag is missing then is set to MASK.')
 parser.add_argument('plain_path', help='path to plain JSONL')
 parser.add_argument('disamb_path', help='path to disamb JSONL (reference)')
 parser.add_argument('output_path', help='path to merged JSONL')
