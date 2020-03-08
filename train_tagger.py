@@ -16,14 +16,14 @@ from flair.embeddings import (
     StackedEmbeddings,
     FlairEmbeddings,
     CharacterEmbeddings,
-    OneHotEmbeddings)
+    OneHotEmbeddings, BertEmbeddings)
 from flair.training_utils import EvaluationMetric, add_file_handler
 from flair.visual.training_curves import Plotter
 from torch.utils.data.dataset import ConcatDataset
 
 import tsv
 from helpers import get_embeddings
-from tokenization import FlairEmbeddingsEnd
+from tokenization import FlairEmbeddingsEnd, FlairEmbeddingsBoth, FlairEmbeddingsOuter, FlairEmbeddingsStart
 
 parser = ArgumentParser(description='Train')
 parser.add_argument('data_folder', help='directory with corpus files')
@@ -59,13 +59,17 @@ parser.add_argument('--tags', action='store_true', help='add maca tags as OneHot
 parser.add_argument('--poss', action='store_true', help='add maca poses as OneHot embeddings')
 parser.add_argument('--space', action='store_true', help='add space as embeddings')
 parser.add_argument('--year', action='store_true', help='add year as embeddings')
-parser.add_argument('--ambig', action='store_true', help='add ambiguous as embeddings')
 parser.add_argument('--crf', action='store_true', help='use CRF')
 parser.add_argument('--use_amp', action='store_true', help='use AMP')
 parser.add_argument('--amp_opt_level', default='O1', help='O1 or O2 for mixed precision')
 parser.add_argument('--train_initial_hidden_state', action='store_true', help='train_initial_hidden_state')
 parser.add_argument('--anneal_with_restarts', action='store_true', help='anneal_with_restarts')
 parser.add_argument('--fine_tune_flair', action='store_true', help='fine_tune flair embeddings')
+parser.add_argument('--w2v', action='store_true', help='w2v embeddings')
+parser.add_argument('--mbert', action='store_true', help='mbert embeddings')
+parser.add_argument('--fboth', action='store_true', help='FlairEmbeddingsBoth')
+parser.add_argument('--start', action='store_true', help='FlairEmbeddingsStart')
+parser.add_argument('--outer', action='store_true', help='FlairEmbeddingsOuter')
 
 args = parser.parse_args()
 
@@ -84,7 +88,7 @@ random.seed(args.seed)
 np.random.seed(args.seed)
 
 # 1. get the corpus
-columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous', 6: 'label'}
+columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'label'}
 # sample 10% of train as dev
 
 # 2. what tag do we want to predict?
@@ -149,10 +153,31 @@ else:
     print(tag_dictionary.idx2item)
     
     # initialize embeddings
-    embedding_types: List[TokenEmbeddings] = [
-        FlairEmbeddingsEnd('pl-forward', fine_tune=args.fine_tune_flair),
-        FlairEmbeddingsEnd('pl-backward', fine_tune=args.fine_tune_flair),
-    ]
+    if args.fboth:
+        embedding_types: List[TokenEmbeddings] = [
+            FlairEmbeddingsBoth('pl-forward', fine_tune=args.fine_tune_flair),  # TODO złe
+            FlairEmbeddingsBoth('pl-backward', fine_tune=args.fine_tune_flair),
+        ]
+    elif args.start:
+        embedding_types: List[TokenEmbeddings] = [
+            FlairEmbeddingsStart('pl-forward', fine_tune=args.fine_tune_flair),  # TODO złe
+            FlairEmbeddingsStart('pl-backward', fine_tune=args.fine_tune_flair),
+        ]
+    elif args.outer:
+        embedding_types: List[TokenEmbeddings] = [
+            FlairEmbeddingsOuter('pl-forward', fine_tune=args.fine_tune_flair),  # TODO złe
+            FlairEmbeddingsOuter('pl-backward', fine_tune=args.fine_tune_flair),
+        ]
+    else:
+        embedding_types: List[TokenEmbeddings] = [
+            FlairEmbeddings('pl-forward', fine_tune=args.fine_tune_flair),  #TODO złe
+            FlairEmbeddings('pl-backward', fine_tune=args.fine_tune_flair),
+        ]
+    if args.mbert:
+        embedding_types.append(BertEmbeddings('/net/scratch/people/plgkwrobel/transformers/examples/pos-p2020-model_e20_multi_512/'))
+    if args.w2v:
+        embedding_types.append(WordEmbeddings('pl'))
+        
     if args.tags:
         embedding_types.append(OneHotEmbeddings(corpus=cc, field='tags', embedding_length=20))
     if args.poss:
@@ -161,8 +186,7 @@ else:
         embedding_types.append(OneHotEmbeddings(corpus=cc, field='space_before', embedding_length=2))
     if args.year:
         embedding_types.append(OneHotEmbeddings(corpus=cc, field='year', embedding_length=2))
-    if args.ambig:
-        embedding_types.append(OneHotEmbeddings(corpus=cc, field='ambiguous', embedding_length=2))
+
         
     embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
     

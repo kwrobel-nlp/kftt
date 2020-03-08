@@ -107,6 +107,21 @@ def get_input_unambig_offsets(paragraph: List[Tuple[str, int, int]]):
         last_offset += len(token)
     return unambig_offsets, text
 
+def get_input_wospace_offsets(paragraph: List[Tuple[str, int, int]]): #TODO
+    text = ''
+    unambig_offsets = []
+    last_offset = 0
+    prev_ambig = False
+    for token, ambig, decision in paragraph:
+        text += token
+        if ambig == 0:
+            if not prev_ambig:
+                unambig_offsets.append((last_offset, last_offset + len(token)))
+            prev_ambig = False
+        else:
+            prev_ambig = True
+        last_offset += len(token)
+    return unambig_offsets, text
 
 def score(tp, fp, fn):
     print(f"TP: {tp} FP: {fp} FN: {fn}")

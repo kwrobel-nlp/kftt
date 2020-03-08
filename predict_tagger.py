@@ -1,18 +1,18 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from flair.data import Token
+from flair.data import Token, Sentence
 
 import tsv
 
-parser = ArgumentParser(description='Predict segmentation on TSV')
+parser = ArgumentParser(description='Predict tagging on TSV')
 parser.add_argument('model', help='path to model')
 parser.add_argument('data', help='path to TSV file')
 parser.add_argument('output', help='path to TSV file with predictions')
 
 args = parser.parse_args()
 
-columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous', 6: 'label'}
+columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'label'}
 train = tsv.TSVDataset(
     Path(args.data),
     columns,
@@ -33,6 +33,7 @@ for sentence in train:
 from flair.models import SequenceTagger
 
 tagger: SequenceTagger = SequenceTagger.load(args.model)
+tagger.predict(Sentence('Ala ma kota.'))
 
 import time
 start_time = time.time()

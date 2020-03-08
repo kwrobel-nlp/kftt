@@ -2,6 +2,8 @@ import json
 import sys
 from typing import List
 
+import regex
+
 
 class KInterpretation:
     def __init__(self, lemma: str, tag: str, disamb: bool, manual: bool = None):
@@ -81,6 +83,11 @@ class KToken:
     def has_disamb(self):
         return any([interpretation.disamb for interpretation in self.interpretations])
 
+    def disamb_tag(self):
+        disamb_tags=[interpretation.tag for interpretation in self.interpretations if interpretation.disamb]
+        if len(disamb_tags)!=1:
+            print('WARNING Disamb tags', len(disamb_tags), self.has_disamb(), self.save(), file=sys.stderr)
+        return disamb_tags[0]
 
 class KText:
     """Represents paragraph."""
@@ -118,6 +125,7 @@ class KText:
                     and token.end_offset == reference_token.end_offset:
                 # print('Found token', file=sys.stderr)
                 # 2. find interpretation
+                token.sentence_end = reference_token.sentence_end
                 found_interpretation = False
                 for interpretation in token.interpretations:
                     if interpretation.lemma == reference_interpretation.lemma \
@@ -207,7 +215,7 @@ class KText:
             try:
                 start_offset = text.index(form, last_offset)
             except:
-                print(form, text, last_offset)
+                print('Form not found in text:', form, text, last_offset, file=sys.stderr)
             end_offset = start_offset + len(form)
 
             token.start_offset = start_offset
@@ -263,6 +271,45 @@ class KText:
                 print('OMITTING node without incoming edges', token.form, file=sys.stderr)
                 token.start_offset = None
                 token.end_offset = None
+
+        # print(offsets.values())
+        del end_offsets[0]
+        
+        
+    def fix_offsets3(self):
+        """Against text without spaces"""
+        text = regex.sub('\s+', '', self.text)
+        start_offsets = {}
+        end_offsets = {0: 0}
+        for token in self.tokens:
+            start_position = token.start_position
+            end_position = token.end_position
+            # print(start_position, end_position)
+            try:
+                previous_end_offset = end_offsets[start_position]
+                if text[previous_end_offset:previous_end_offset + len(token.form)] == token.form:
+                    # token.space_before = False
+                    pass
+                elif text[previous_end_offset + 1:previous_end_offset + 1 + len(token.form)] == token.form:
+                    # token.space_before = True
+                    previous_end_offset += 1
+
+                start_offsets[start_position] = previous_end_offset
+                token.start_offset2 = previous_end_offset
+
+                if text[previous_end_offset:previous_end_offset + len(token.form)] == token.form:
+                    end_offsets[end_position] = previous_end_offset + len(token.form)
+                    token.end_offset2 = previous_end_offset + len(token.form)
+                else:  # manually corrected tokenization introducing space before
+                    print('OMITTING token with different space before',
+                          text[previous_end_offset:previous_end_offset + len(token.form)], token.form,
+                          file=sys.stderr)
+                    token.start_offset2 = None
+                    token.end_offset2 = None
+            except KeyError:
+                print('OMITTING node without incoming edges', token.form, file=sys.stderr)
+                token.start_offset2 = None
+                token.end_offset2 = None
 
         # print(offsets.values())
         del end_offsets[0]

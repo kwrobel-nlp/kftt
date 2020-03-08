@@ -58,8 +58,8 @@ if __name__ == '__main__':
         ambig_para=ambig_paras[text]
         
         for (token, pred), (atoken, aambig, apred) in zip(segments, ambig_para):
-            if aambig==0 and pred!=1:
-                pred=1
-                print('fix', file=sys.stderr)
+            if aambig==0 and pred!=apred:
+                pred=apred
+                print('fix', pred, apred, file=sys.stderr)
             print(' '.join([token, 'X', str(pred), 'X']))
         print()

@@ -23,12 +23,11 @@ from torch.utils.data.dataset import ConcatDataset
 
 import tsv
 from helpers import get_embeddings
-from tokenization import FlairEmbeddingsEnd
+from tokenization import FlairEmbeddingsEnd, FlairEmbeddingsBoth
 
 parser = ArgumentParser(description='Train')
 parser.add_argument('data_folder', help='directory with corpus files')
 parser.add_argument('train', help='train file name')
-parser.add_argument('test', help='test file name')
 parser.add_argument('--pretrained_model', help='path to pretrained model')
 
 parser.add_argument('--dev', default=None, help='dev file name')
@@ -65,7 +64,6 @@ parser.add_argument('--use_amp', action='store_true', help='use AMP')
 parser.add_argument('--amp_opt_level', default='O1', help='O1 or O2 for mixed precision')
 parser.add_argument('--train_initial_hidden_state', action='store_true', help='train_initial_hidden_state')
 parser.add_argument('--anneal_with_restarts', action='store_true', help='anneal_with_restarts')
-parser.add_argument('--fine_tune_flair', action='store_true', help='fine_tune flair embeddings')
 
 args = parser.parse_args()
 
@@ -84,7 +82,7 @@ random.seed(args.seed)
 np.random.seed(args.seed)
 
 # 1. get the corpus
-columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous', 6: 'label'}
+columns = {0: 'text', 1: 'label'}
 # sample 10% of train as dev
 
 # 2. what tag do we want to predict?
@@ -119,23 +117,13 @@ print(tag_dictionary.idx2item)
 
 
 corpus: Corpus = tsv.TSVCorpus(args.data_folder, columns,
-                               train_file=args.train,
-                               test_file=args.test,
-                               dev_file=args.dev)
+                               train_file=args.train)
 
-# set whitespace_after
-for sentences in [corpus.train, corpus.dev, corpus.test]:
-    for sentence in sentences:
-        for i in range(1, len(sentence.tokens)):
-            token: Token = sentence.tokens[i]
-            token_before: Token = sentence.tokens[i - 1]
-            if token.get_tag('space_before').value == '0':
-                token_before.whitespace_after = False
+
 
 # TODO: downsample - test 50% for trianig
 # corpus.downsample(0.5, only_downsample_train=True)
-if args.downsample<1.0:
-    corpus = corpus.downsample(args.downsample, only_downsample_train=args.downsample_train)
+corpus = corpus.downsample(args.downsample, only_downsample_train=args.downsample_train)
 print(corpus)
 
 
@@ -150,19 +138,10 @@ else:
     
     # initialize embeddings
     embedding_types: List[TokenEmbeddings] = [
-        FlairEmbeddingsEnd('pl-forward', fine_tune=args.fine_tune_flair),
-        FlairEmbeddingsEnd('pl-backward', fine_tune=args.fine_tune_flair),
+        FlairEmbeddingsBoth('pl-forward'), #TODO złe
+        FlairEmbeddingsBoth('pl-backward'),
     ]
-    if args.tags:
-        embedding_types.append(OneHotEmbeddings(corpus=cc, field='tags', embedding_length=20))
-    if args.poss:
-        embedding_types.append(OneHotEmbeddings(corpus=cc, field='poss', embedding_length=10))
-    if args.space:
-        embedding_types.append(OneHotEmbeddings(corpus=cc, field='space_before', embedding_length=2))
-    if args.year:
-        embedding_types.append(OneHotEmbeddings(corpus=cc, field='year', embedding_length=2))
-    if args.ambig:
-        embedding_types.append(OneHotEmbeddings(corpus=cc, field='ambiguous', embedding_length=2))
+    
         
     embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embedding_types)
     
@@ -178,7 +157,6 @@ else:
                                             use_crf=args.crf,
                                             rnn_layers=args.rnn,
                                             train_initial_hidden_state=args.train_initial_hidden_state,
-                                            loss_weights={'0': 10.}
                                             )
 
 # initialize trainer

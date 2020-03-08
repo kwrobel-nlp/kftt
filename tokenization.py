@@ -5,7 +5,7 @@ import torch
 
 import flair
 from flair.data import Sentence, Token
-from flair.embeddings import TokenEmbeddings, replace_with_language_code
+from flair.embeddings import TokenEmbeddings, replace_with_language_code, FlairEmbeddings
 from flair.file_utils import cached_path
 
 
@@ -265,3 +265,250 @@ class FlairEmbeddingsEnd(TokenEmbeddings):
 
     def __str__(self):
         return self.name
+    
+    
+class FlairEmbeddingsBoth(FlairEmbeddings):
+    """Contextual string embeddings of words, as proposed in Akbik et al., 2018.
+    Modified to return backward model embeddings at the end of a word (in the same place of sentence as forward)."""
+
+    def __init__(self, model, fine_tune: bool = False, chars_per_chunk: int = 512):
+        """
+        initializes contextual string embeddings using a character-level language model.
+        :param model: model string, one of 'news-forward', 'news-backward', 'news-forward-fast', 'news-backward-fast',
+                'mix-forward', 'mix-backward', 'german-forward', 'german-backward', 'polish-backward', 'polish-forward'
+                depending on which character language model is desired.
+        :param fine_tune: if set to True, the gradient will propagate into the language model. This dramatically slows down
+                training and often leads to overfitting, so use with caution.
+        :param  chars_per_chunk: max number of chars per rnn pass to control speed/memory tradeoff. Higher means faster but requires
+                more memory. Lower means slower but less memory.
+        """
+        super().__init__(model, fine_tune, chars_per_chunk)
+
+    def _add_embeddings_internal(self, sentences: List[Sentence]) -> List[Sentence]:
+
+        # gradients are enable if fine-tuning is enabled
+        gradient_context = torch.enable_grad() if self.fine_tune else torch.no_grad()
+
+        with gradient_context:
+
+            # if this is not possible, use LM to generate embedding. First, get text sentences
+            text_sentences = [sentence.to_plain_string() for sentence in sentences]
+
+            start_marker = "\n"
+            end_marker = " "
+
+            # get hidden states from language model
+            all_hidden_states_in_lm = self.lm.get_representation(
+                text_sentences, start_marker, end_marker, self.chars_per_chunk
+            )
+
+            if not self.fine_tune:
+                all_hidden_states_in_lm = all_hidden_states_in_lm.detach()
+
+            # take first or last hidden states from language model as word representation
+            for i, sentence in enumerate(sentences):
+                sentence_text = sentence.to_plain_string()
+
+                offset_forward2: int = len(start_marker) - 1
+                offset_backward2: int = len(sentence_text) + len(start_marker) - 1
+                offset_backward1: int = len(sentence_text) + len(start_marker) - 1
+                offset_forward1: int = len(start_marker) - 1
+
+                for token in sentence.tokens:
+
+                    offset_forward2 += len(token.text)
+                    offset_backward1 -= len(token.text)
+
+                    if self.is_forward_lm:
+                        offset2 = offset_forward2
+                        offset1 = offset_forward1
+                    else:
+                        offset2 = offset_backward2
+                        offset1 = offset_backward1
+
+                    embedding1 = all_hidden_states_in_lm[offset1, i, :]
+                    embedding2 = all_hidden_states_in_lm[offset2, i, :]
+                    embedding = torch.cat([embedding1, embedding2])
+
+                    if token.whitespace_after:
+                        offset_forward2 += 1
+                        offset_backward2 -= 1
+                        offset_forward1 += 1
+                        offset_backward1 -= 1
+
+                    offset_backward2 -= len(token.text)
+                    offset_forward1 += len(token.text)
+
+                    # only clone if optimization mode is 'gpu'
+                    if flair.embedding_storage_mode == "gpu":
+                        embedding = embedding.clone()
+
+                    token.set_embedding(self.name, embedding)
+
+            del all_hidden_states_in_lm
+
+        return sentences
+
+    
+
+class FlairEmbeddingsStart(FlairEmbeddings):
+    """Contextual string embeddings of words, as proposed in Akbik et al., 2018.
+    Modified to return backward model embeddings at the end of a word (in the same place of sentence as forward)."""
+    
+    def __init__(self, model, fine_tune: bool = False, chars_per_chunk: int = 512):
+        """
+        initializes contextual string embeddings using a character-level language model.
+        :param model: model string, one of 'news-forward', 'news-backward', 'news-forward-fast', 'news-backward-fast',
+                'mix-forward', 'mix-backward', 'german-forward', 'german-backward', 'polish-backward', 'polish-forward'
+                depending on which character language model is desired.
+        :param fine_tune: if set to True, the gradient will propagate into the language model. This dramatically slows down
+                training and often leads to overfitting, so use with caution.
+        :param  chars_per_chunk: max number of chars per rnn pass to control speed/memory tradeoff. Higher means faster but requires
+                more memory. Lower means slower but less memory.
+        """
+        super().__init__(model, fine_tune, chars_per_chunk)
+        
+    def _add_embeddings_internal(self, sentences: List[Sentence]) -> List[Sentence]:
+
+        # gradients are enable if fine-tuning is enabled
+        gradient_context = torch.enable_grad() if self.fine_tune else torch.no_grad()
+
+        with gradient_context:
+
+            # if this is not possible, use LM to generate embedding. First, get text sentences
+            text_sentences = [sentence.to_plain_string() for sentence in sentences]
+
+            start_marker = "\n"
+            end_marker = " "
+
+            # get hidden states from language model
+            all_hidden_states_in_lm = self.lm.get_representation(
+                text_sentences, start_marker, end_marker, self.chars_per_chunk
+            )
+
+            if not self.fine_tune:
+                all_hidden_states_in_lm = all_hidden_states_in_lm.detach()
+
+            # take first or last hidden states from language model as word representation
+            for i, sentence in enumerate(sentences):
+                sentence_text = sentence.to_plain_string()
+                # print(sentence_text)
+                #offset_forward2: int = len(start_marker) - 1
+                offset_backward2: int = len(sentence_text) + len(start_marker) - 1
+                #offset_backward1: int = len(sentence_text) + len(start_marker) - 1
+                offset_forward1: int = len(start_marker) - 1
+
+                for token in sentence.tokens:
+
+                    #offset_forward2 += len(token.text)
+                    #offset_backward1 -= len(token.text)
+
+                    if self.is_forward_lm:
+                        #offset2 = offset_forward2
+                        offset = offset_forward1
+                        # print('FORWARD:', sentence_text[:offset])
+                    else:
+                        offset = offset_backward2
+                        #offset1 = offset_backward1
+                        # print('BACKWARD:', sentence_text[-offset:])
+
+                    embedding = all_hidden_states_in_lm[offset, i, :]
+
+                    if token.whitespace_after:
+                        offset_forward1 += 1
+                        offset_backward2 -= 1
+
+                    offset_backward2 -= len(token.text)
+                    offset_forward1 += len(token.text)
+
+                    # only clone if optimization mode is 'gpu'
+                    if flair.embedding_storage_mode == "gpu":
+                        embedding = embedding.clone()
+
+                    token.set_embedding(self.name, embedding)
+
+            del all_hidden_states_in_lm
+
+        return sentences
+
+
+class FlairEmbeddingsOuter(FlairEmbeddings):
+    """Contextual string embeddings of words, as proposed in Akbik et al., 2018.
+    Modified to return backward model embeddings at the end of a word (in the same place of sentence as forward)."""
+
+    def __init__(self, model, fine_tune: bool = False, chars_per_chunk: int = 512):
+        """
+        initializes contextual string embeddings using a character-level language model.
+        :param model: model string, one of 'news-forward', 'news-backward', 'news-forward-fast', 'news-backward-fast',
+                'mix-forward', 'mix-backward', 'german-forward', 'german-backward', 'polish-backward', 'polish-forward'
+                depending on which character language model is desired.
+        :param fine_tune: if set to True, the gradient will propagate into the language model. This dramatically slows down
+                training and often leads to overfitting, so use with caution.
+        :param  chars_per_chunk: max number of chars per rnn pass to control speed/memory tradeoff. Higher means faster but requires
+                more memory. Lower means slower but less memory.
+        """
+        super().__init__(model, fine_tune, chars_per_chunk)
+        
+    def _add_embeddings_internal(self, sentences: List[Sentence]) -> List[Sentence]:
+
+        # gradients are enable if fine-tuning is enabled
+        gradient_context = torch.enable_grad() if self.fine_tune else torch.no_grad()
+
+        with gradient_context:
+
+            # if this is not possible, use LM to generate embedding. First, get text sentences
+            text_sentences = [sentence.to_plain_string() for sentence in sentences]
+
+            start_marker = "\n"
+            end_marker = " "
+
+            # get hidden states from language model
+            all_hidden_states_in_lm = self.lm.get_representation(
+                text_sentences, start_marker, end_marker, self.chars_per_chunk
+            )
+
+            if not self.fine_tune:
+                all_hidden_states_in_lm = all_hidden_states_in_lm.detach()
+
+            # take first or last hidden states from language model as word representation
+            for i, sentence in enumerate(sentences):
+                sentence_text = sentence.to_plain_string()
+
+                
+
+                #offset_forward2: int = len(start_marker) - 1
+                #offset_backward2: int = len(sentence_text) + len(start_marker) - 1
+                offset_backward1: int = len(sentence_text) + len(start_marker) - 1
+                offset_forward1: int = len(start_marker) - 1
+
+                for token in sentence.tokens:
+
+                    #offset_forward2 += len(token.text)
+                    offset_backward1 -= len(token.text)
+
+                    if self.is_forward_lm:
+                        #offset2 = offset_forward2
+                        offset = offset_forward1
+                    else:
+                        #offset2 = offset_backward2
+                        offset = offset_backward1
+
+                    embedding = all_hidden_states_in_lm[offset, i, :]
+
+
+                    if token.whitespace_after:
+                        offset_forward1 += 1
+                        offset_backward1 -= 1
+
+                    #offset_backward2 -= len(token.text)
+                    offset_forward1 += len(token.text)
+
+                    # only clone if optimization mode is 'gpu'
+                    if flair.embedding_storage_mode == "gpu":
+                        embedding = embedding.clone()
+
+                    token.set_embedding(self.name, embedding)
+
+            del all_hidden_states_in_lm
+
+        return sentences
