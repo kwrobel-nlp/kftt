@@ -7,6 +7,7 @@ import sys
 from argparse import ArgumentParser
 
 import jsonlines as jsonlines
+from tqdm import tqdm
 
 from ktagger import KInterpretation, KToken, KText
 
@@ -197,6 +198,6 @@ args = parser.parse_args()
 corpus = args.corpus_name
 
 with jsonlines.open(args.output_path, mode='w') as writer:
-    for path in sorted(glob.glob(args.path)):
+    for path in tqdm(sorted(glob.glob(args.path))):
         for ktext in convert_to_ktagger(path):
             writer.write(ktext.save())
