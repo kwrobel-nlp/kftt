@@ -234,6 +234,8 @@ class KText:
             if token.end_offset is None:
                 continue
             for token2 in self.tokens:
+                if token2.manual:
+                    continue
                 if token2.start_offset is None or token2.end_offset is None:
                     continue
                 if token2.start_offset < token.end_offset < token2.end_offset:
