@@ -126,6 +126,7 @@ class KText:
                 # print('Found token', file=sys.stderr)
                 # 2. find interpretation
                 token.sentence_end = reference_token.sentence_end
+                # print(token.sentence_end)
                 found_interpretation = False
                 for interpretation in token.interpretations:
                     if interpretation.lemma == reference_interpretation.lemma \
@@ -228,6 +229,8 @@ class KText:
     def find_ambiguous_end_offsets(self):
         ambiguous_end_offsets = set()
         for token in self.tokens:
+            if token.manual:
+                continue
             if token.end_offset is None:
                 continue
             for token2 in self.tokens:

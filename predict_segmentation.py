@@ -9,10 +9,11 @@ parser = ArgumentParser(description='Predict segmentation on TSV')
 parser.add_argument('model', help='path to model')
 parser.add_argument('data', help='path to TSV file')
 parser.add_argument('output', help='path to TSV file with predictions')
+parser.add_argument('--mini_batch_size', default=32, type=int, help='mini batch size')
 
 args = parser.parse_args()
 
-columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous', 6: 'label'}
+columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous'}
 train = tsv.TSVDataset(
     Path(args.data),
     columns,
@@ -36,7 +37,7 @@ tagger: SequenceTagger = SequenceTagger.load(args.model)
 
 import time
 start_time = time.time()
-tagger.predict(train)
+tagger.predict(train, mini_batch_size=args.mini_batch_size)
 print("--- %s seconds ---" % (time.time() - start_time))
 
 with open(args.output, 'w') as writer:
