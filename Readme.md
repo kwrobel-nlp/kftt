@@ -61,11 +61,6 @@ mkdir test_data_temp
 cp ${OUTPUT}.tagging test_data_temp/test.txt
 ```
 
-Install transformers:
-```commandline
-pip3 install transformers==2.4.1 seqeval tensorboardX
-```
-
 Download model:
 ```commandline
 cd models
@@ -76,24 +71,14 @@ cd ..
 
 Tag:
 ```commandline
-export MAX_LENGTH=512
 export BERT_MODEL=models/pos-p2020-model_e20_xlmrl_512_run3-repro-train+dev+test
-export OUTPUT_DIR=models/pos-p2020-model_e20_xlmrl_512_run3-repro-train+dev+test
-export BATCH_SIZE=1
-export NUM_EPOCHS=20
-export SAVE_STEPS=574
-export SEED=1
 time python3 run_ner_predict.py --data_dir ./test_data_temp/ \
 --model_type xlmroberta \
 --labels models/pos-p2020-model_e20_xlmrl_512_run3-repro-train+dev+test/labels.txt \
 --model_name_or_path $BERT_MODEL \
---output_dir $OUTPUT_DIR \
---max_seq_length  $MAX_LENGTH \
---num_train_epochs $NUM_EPOCHS \
---per_gpu_train_batch_size $BATCH_SIZE \
---per_gpu_eval_batch_size $BATCH_SIZE \
---save_steps $SAVE_STEPS \
---seed $SEED \
+--output_dir $BERT_MODEL \
+--max_seq_length 512 \
+--per_gpu_eval_batch_size 1 \
 --do_predict 
 ```
 
