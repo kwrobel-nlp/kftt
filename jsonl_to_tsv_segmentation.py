@@ -10,7 +10,6 @@ from ktagger import KText
 parser = ArgumentParser(description='Train')
 parser.add_argument('merged_path', help='path to merged JSONL')
 parser.add_argument('output_path', help='path to output TSV')
-# parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
 args = parser.parse_args()
 
 

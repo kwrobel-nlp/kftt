@@ -1,1 +1,2 @@
 git+https://github.com/djstrong/flair.git@fixed-flair_embeddings
+jsonlines

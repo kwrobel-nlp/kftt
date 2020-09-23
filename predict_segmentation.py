@@ -13,7 +13,7 @@ parser.add_argument('--mini_batch_size', default=32, type=int, help='mini batch 
 
 args = parser.parse_args()
 
-columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous', 6: 'label'}
+columns = {0: 'text', 1: 'space_before', 2: 'tags', 3: 'poss', 4: 'year', 5: 'ambiguous'}
 train = tsv.TSVDataset(
     Path(args.data),
     columns,
