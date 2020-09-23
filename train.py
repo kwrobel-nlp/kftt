@@ -24,6 +24,7 @@ from torch.utils.data.dataset import ConcatDataset
 import tsv
 from helpers import get_embeddings
 from tokenization import FlairEmbeddingsEnd
+from utils import BinarySequenceTagger
 
 parser = ArgumentParser(description='Train')
 parser.add_argument('data_folder', help='directory with corpus files')
@@ -66,6 +67,7 @@ parser.add_argument('--amp_opt_level', default='O1', help='O1 or O2 for mixed pr
 parser.add_argument('--train_initial_hidden_state', action='store_true', help='train_initial_hidden_state')
 parser.add_argument('--anneal_with_restarts', action='store_true', help='anneal_with_restarts')
 parser.add_argument('--fine_tune_flair', action='store_true', help='fine_tune flair embeddings')
+parser.add_argument('--binary', action='store_true', help='train with binary F1 as a metric')
 
 args = parser.parse_args()
 
@@ -138,12 +140,16 @@ if args.downsample<1.0:
     corpus = corpus.downsample(args.downsample, only_downsample_train=args.downsample_train)
 print(corpus)
 
-
+from flair.models import SequenceTagger
+if args.binary:
+    sequence_tagger_class=BinarySequenceTagger
+else:
+    sequence_tagger_class=SequenceTagger
 
 # 3. make the tag dictionary from the corpus
-from flair.models import SequenceTagger
+
 if args.pretrained_model:
-    tagger: SequenceTagger = SequenceTagger.load(args.pretrained_model)
+    tagger: SequenceTagger = sequence_tagger_class.load(args.pretrained_model)
 else:
     tag_dictionary = corpus.make_tag_dictionary(tag_type=tag_type)
     print(tag_dictionary.idx2item)
@@ -171,7 +177,7 @@ else:
     # initialize sequence tagger
     
     
-    tagger: SequenceTagger = SequenceTagger(hidden_size=args.hidden_size,
+    tagger: SequenceTagger = sequence_tagger_class(hidden_size=args.hidden_size,
                                             embeddings=embeddings,
                                             tag_dictionary=tag_dictionary,
                                             tag_type=tag_type,
