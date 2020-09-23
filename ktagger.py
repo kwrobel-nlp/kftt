@@ -126,6 +126,7 @@ class KText:
                 # print('Found token', file=sys.stderr)
                 # 2. find interpretation
                 token.sentence_end = reference_token.sentence_end
+                # print(token.sentence_end)
                 found_interpretation = False
                 for interpretation in token.interpretations:
                     if interpretation.lemma == reference_interpretation.lemma \
@@ -163,6 +164,15 @@ class KText:
         d = {'id': self.id, 'text': self.text, 'year': self.year}
         d['tokens'] = [token.save() for token in self.tokens]
         return d
+
+    def repr(self):
+        result=[]
+        for token in self.tokens:
+            # print()
+            if not token.has_disamb():
+                continue
+            result.append(token.form+'\t'+token.disamb_tag())
+        return '\n'.join(result)
 
     @staticmethod
     def load(data):
@@ -228,9 +238,13 @@ class KText:
     def find_ambiguous_end_offsets(self):
         ambiguous_end_offsets = set()
         for token in self.tokens:
+            if token.manual:
+                continue
             if token.end_offset is None:
                 continue
             for token2 in self.tokens:
+                if token2.manual:
+                    continue
                 if token2.start_offset is None or token2.end_offset is None:
                     continue
                 if token2.start_offset < token.end_offset < token2.end_offset:

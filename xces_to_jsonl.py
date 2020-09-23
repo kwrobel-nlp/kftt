@@ -47,7 +47,8 @@ def read_xces(file_path: str, corpus_name: str='', only_disamb: bool=False):
                         for xml_node in xml_token.getchildren():
                             if xml_node.tag == 'orth':
                                 orth = xml_node.text
-                                orth=orth.replace(' ', ' ') #a j e n t a
+                                if orth is not None:
+                                    orth=orth.replace(' ', ' ') #a j e n t a
                                 token.form = orth
                             elif xml_node.tag == 'lex':
                                 if xml_node.get('disamb') == '1':
@@ -76,7 +77,7 @@ def read_xces(file_path: str, corpus_name: str='', only_disamb: bool=False):
                         ns = False
                     else:
                         logging.error(f'Error 2 {xml_token}')
-                token.sentence_end = True
+                paragraph.tokens[-1].sentence_end = True
             
             paragraph.text = paragraph.infer_original_text()
             paragraph.fix_offsets(paragraph.text)

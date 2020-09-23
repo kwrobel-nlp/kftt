@@ -7,7 +7,7 @@ from ktagger import KText
 parser = ArgumentParser(description='Converts disamb JSONL to gold DAG')
 parser.add_argument('disamb_path', help='path to disamb JSONL')
 parser.add_argument('output_path', help='path to output DAG')
-# parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
+parser.add_argument('--sentences', action='store_true', help='split to sentences')
 args = parser.parse_args()
 
 with jsonlines.open(args.disamb_path) as reader, open(args.output_path, 'w') as writer:
@@ -34,6 +34,10 @@ with jsonlines.open(args.disamb_path) as reader, open(args.output_path, 'w') as 
                 writer.write('\t'.join([str(i), str(i + 1), token.form, 'X', 'ign', space, '']))
                 writer.write("\n")
             i += 1
+            
+            if args.sentences and token.sentence_end:
+                writer.write("\n")
+            
             # writer.write("\t".join(
             #     [token.form, space, '_'.join(sorted(tags)), '_'.join(sorted(poss)), str(ktext.year),
             #      token.disamb_tag()]))

@@ -1,1 +1,1 @@
-flair>=0.4.5
+git+https://github.com/djstrong/flair.git@fixed-flair_embeddings
