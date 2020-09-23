@@ -1,9 +1,25 @@
+# KFTT
 
-# PolEval 2020 results reproduction
+Morphosyntactic tagger for Polish, the [winner](http://poleval.pl/results/) of PolEval 2020 Task 2: Morphosyntactic tagging of Middle, New and Modern Polish; successor of [KRNNT](https://github.com/kwrobel-nlp/krnnt).
+
+|           Model          | Accuracy | Acc on known | Acc on ign | Acc on manual known |
+|:------------------------:|:--------:|:------------:|:----------:|:-------------:|
+| KFTT train+devel wo_morf |   95.63% |       95.95% |     81.91% |        67.30% |
+| KFTT train+devel         |   95.73% |       96.07% |     81.02% |        67.81% |
+
+KFTT train+devel accuracy on different parts of the test corpus:
+
+|                        Corpus                      | Period | Accuracy | Acc on known | Acc on ign | Acc on manual |
+|:--------------------------------------------------:|--------|:--------:|:------------:|:----------:|:-------------:|
+| KorBa — a corpus of 17th and 18th century          | Middle | 94.35%   | 94.83%       | 79.43%     | 73.87%        |
+| a corpus of 19th century                           | New    | 96.94%   | 97.15%       | 83.24%     | 78.39%        |
+| 1M subcorpus of the National Corpus of Polish NKJP | Modern | 97.37%   | 97.48%       | 87.78%     | 84.07%        |
+
+## PolEval 2020 results reproduction
 
 Install PyTorch with a compatible version of CUDA with your drivers.
 ```commandline
-pip install torch # torchvision
+pip install torch
 ```
 Install requirements:
 ```commandline
@@ -32,8 +48,8 @@ Download tokenization models:
 ```commandline
 mkdir models
 cd models
-wget ModelB+allF+CRF.pt
-wget ModelB+CRF.pt
+wget https://github.com/kwrobel-nlp/kftt/releases/download/v0.1/ModelB+allF+CRF.pt
+wget https://github.com/kwrobel-nlp/kftt/releases/download/v0.1/ModelB+CRF.pt
 cd ..
 ```
 Choose tokenization model:
@@ -64,22 +80,23 @@ cp ${OUTPUT}.tagging test_data_temp/test.txt
 Download model:
 ```commandline
 cd models
-wget 
-unzip
+wget https://github.com/kwrobel-nlp/kftt/releases/download/v0.1/train+dev.zip
+unzip train+dev.zip
 cd ..
 ```
 
 Tag:
 ```commandline
-export BERT_MODEL=models/pos-p2020-model_e20_xlmrl_512_run3-repro-train+dev+test
+export BERT_MODEL=models/train+dev
 time python3 run_ner_predict.py --data_dir ./test_data_temp/ \
 --model_type xlmroberta \
---labels models/pos-p2020-model_e20_xlmrl_512_run3-repro-train+dev+test/labels.txt \
+--labels models/train+dev/labels.txt \
 --model_name_or_path $BERT_MODEL \
 --output_dir $BERT_MODEL \
 --max_seq_length 512 \
 --per_gpu_eval_batch_size 1 \
---do_predict 
+--do_predict
+# Tagging: 16.61 seconds 
 ```
 
 Copy results:
