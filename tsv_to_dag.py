@@ -22,7 +22,7 @@ def paragraphs(path, tag_column=1, sep=' '):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description='Converts transformers tagging TSV output to DAG.')
+    parser = ArgumentParser(description='Converts transformers tagging TSV output to DAG. DOES NOT WORK if space is in a form and the sep is space.')
     parser.add_argument('pred_path', help='path to TSV predictions (transformer output)')
     parser.add_argument('dag_path', help='path to DAG output')
     parser.add_argument('--tag_column', default=1, type=int, help='path to DAG output')
