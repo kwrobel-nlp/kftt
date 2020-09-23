@@ -8,11 +8,23 @@ parser = ArgumentParser(description='Convert JSONL to TSV (for training).')
 parser.add_argument('merged_path', help='path to merged JSONL')
 parser.add_argument('output_path', help='path to output TSV')
 parser.add_argument('-s', action='store_true', help='split to sentences')
+parser.add_argument('-c', action='store_true', help='split to corpora')
 args = parser.parse_args()
 
-with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as writer:
+if args.c:
+    writers={}
+else:
+    writer=open(args.output_path, 'w')
+
+with jsonlines.open(args.merged_path) as reader:
     for data in reader:
         ktext = KText.load(data)
+        
+        if args.c:
+            corpus = ktext.id.split('▁')[1].split('_')[0]
+            if corpus not in writers:
+                writers[corpus]=open(args.output_path+'_'+corpus, 'w')
+            writer=writers[corpus]
 
         ktext.tokens = sorted(ktext.tokens, key=lambda t: (t.start_offset, t.end_offset))
 
@@ -33,3 +45,9 @@ with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as 
             if args.s and token.sentence_end is True:
                 writer.write("\n")
         writer.write("\n")
+
+if args.c:
+    for w in writers.values():
+        w.close()
+else:
+    writer.close()
