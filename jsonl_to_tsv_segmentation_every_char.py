@@ -4,6 +4,7 @@ import sys
 from argparse import ArgumentParser
 
 import jsonlines
+from tqdm import tqdm
 
 from ktagger import KText
 
@@ -15,7 +16,7 @@ args = parser.parse_args()
 
 
 with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as writer:
-    for data in reader:
+    for data in tqdm(reader):
         ktext = KText.load(data)
 
         end_offsets_tags = collections.defaultdict(set)

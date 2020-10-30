@@ -27,7 +27,61 @@ DISAMB = 'disamb'
 INTERPRETATIONS = 'interpretations'
 START_OFFSET = 'start_offset'
 END_OFFSET = 'end_offset'
+SENTENCE_END = 'sentence_end'
 
+def read_dag_korba(path):
+    paragraphs = []
+    years = '17'
+    paragraph = {TOKENS: [], YEARS: years}
+    # token_end_positions={0:0}
+    for line in open(path):
+        line = line[:-1]
+        if line == '':  # end of paragraph
+            if paragraph[TOKENS]:
+                paragraphs.append(paragraph)
+            paragraph = {TOKENS: [], YEARS: years}
+            continue
+
+        fields = line.split('\t')
+        
+
+        try:
+            start_position, end_position, segment, lemma, tag, _,_,score, manual, eos, nps, disamb = fields
+            # disamb = disamb == 'disamb'
+            assert disamb in ['', 'disamb']
+        except ValueError:
+            start_position, end_position, segment, lemma, tag, _,_,score, manual, eos, nps = fields
+            disamb = ''
+        if manual=='manual':
+            assert disamb=='disamb'
+            disamb='disamb_manual'
+
+        start_position = int(start_position)
+        end_position = int(end_position)
+
+        nps = nps == 'nps'
+        space_before = not nps
+
+        last_token = paragraph[TOKENS][-1] if paragraph[TOKENS] else None
+        if last_token is not None and \
+                last_token[START_POSITION] == start_position and \
+                last_token[END_POSITION] == end_position:
+            assert last_token[SEGMENT] == segment
+            last_token[INTERPRETATIONS].append({LEMMA: lemma,
+                                                TAG: tag,
+                                                DISAMB: disamb})
+        else:
+            token = {START_POSITION: start_position,
+                     END_POSITION: end_position,
+                     SEGMENT: segment,
+                     SPACE_BEFORE: space_before,
+                     INTERPRETATIONS: [{LEMMA: lemma,
+                                        TAG: tag,
+                                        DISAMB: disamb}],
+                     SENTENCE_END: eos}
+            paragraph[TOKENS].append(token)
+            
+    return paragraphs
 
 def read_dag(path):
     paragraphs = []
@@ -43,7 +97,7 @@ def read_dag(path):
             continue
 
         fields = line.split('\t')
-
+        
         if len(fields) == 1:
             years = fields[0][1:]
             paragraph[YEARS] = years
@@ -137,18 +191,24 @@ def original_text(paragraph):
 
     return ''.join(strings)
 
-def convert_to_ktagger(path):
+def convert_to_ktagger(path, korba=False):
     file_name = os.path.basename(path)
-    paragraphs = read_dag(path)
+    if korba:
+        paragraphs = read_dag_korba(path)
+        file_name = '_'.join(os.path.normpath(path).split(os.path.sep)[-3:-1]) #take folder name
+    else:
+        paragraphs = read_dag(path)
     # print(path, len(paragraphs))
 
     for paragraph_index, paragraph in enumerate(paragraphs):
+        # print(paragraph_index)
         if args.only_disamb:
             tokens = [token for token in paragraph[TOKENS] if is_disamb(token)]
             paragraph[TOKENS] = tokens
 
         paragraph_id = f"{corpus}▁{file_name}▁{paragraph_index}"
         ktext = KText(paragraph_id)
+        
         years = paragraph[YEARS]
         year_feature = years[:2]
         ktext.year = year_feature
@@ -160,6 +220,8 @@ def convert_to_ktagger(path):
 
         for token in paragraph[TOKENS]:
             ktoken = KToken(token[SEGMENT], token[SPACE_BEFORE], token[START_OFFSET], token[END_OFFSET])
+            if SENTENCE_END in token:
+                ktoken.sentence_end=token[SENTENCE_END]=='eos'
             ktext.add_token(ktoken)
             ktoken.start_position = token[START_POSITION]
             ktoken.end_position = token[END_POSITION]
@@ -193,11 +255,14 @@ parser.add_argument('path', help='path pattern to directory with DAG data')
 parser.add_argument('output_path', help='path JSONL output')
 parser.add_argument('corpus_name', help='corpus name')
 parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
+parser.add_argument('--korba', action='store_true', help='korba format')
 args = parser.parse_args()
 
 corpus = args.corpus_name
 
 with jsonlines.open(args.output_path, mode='w') as writer:
+    
     for path in tqdm(sorted(glob.glob(args.path))):
-        for ktext in convert_to_ktagger(path):
+        # print(path)
+        for ktext in convert_to_ktagger(path, korba=args.korba):
             writer.write(ktext.save())

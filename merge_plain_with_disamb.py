@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 
 import jsonlines
+from tqdm import tqdm
 
 from ktagger import KText
 
@@ -13,13 +14,14 @@ args = parser.parse_args()
 
 reference_paragraphs = {}
 with jsonlines.open(args.disamb_path) as reader:
-    for data in reader:
+    for data in tqdm(reader):
         ktext = KText.load(data)
         reference_paragraphs[ktext.id] = ktext
 
 with jsonlines.open(args.plain_path) as reader, jsonlines.open(args.output_path, mode='w') as writer:
-    for data in reader:
+    for data in tqdm(reader):
         ktext = KText.load(data)
+        # print(ktext.id)
         reference_ktext = reference_paragraphs[ktext.id]
 
         # fix_reference_offsets(reference_ktext, ktext.infer_original_text())

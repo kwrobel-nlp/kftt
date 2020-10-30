@@ -147,7 +147,7 @@ class KText:
                 break
         if not found_token:
             # print('NOT Found token', reference_token.save(), file=sys.stderr)
-            if reference_interpretation.manual != True:
+            if reference_interpretation.manual != True: # ten token powinien być oznaczony jako ręcznie wprowadzony
                 print('NOT Found token without manual marking', reference_token.save(), file=sys.stderr)
                 reference_interpretation.manual = True
 
