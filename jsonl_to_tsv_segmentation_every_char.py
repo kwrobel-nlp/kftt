@@ -35,6 +35,7 @@ with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as 
             end_offsets_tags[token.end_offset].update(tags)
 
         reference_end_offsets = set([token.end_offset for token in ktext.tokens if token.has_disamb()])
+        reference_eos_offsets = set([token.end_offset for token in ktext.tokens if token.has_disamb() and token.sentence_end])
 
         ambiguous_end_offsets = ktext.find_ambiguous_end_offsets()
         # print(ambiguous_end_offsets)
@@ -59,7 +60,7 @@ with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as 
                 space_before = False
             
             eot = '1' if end_offset in reference_end_offsets else '0'
-            if args.eos and token.sentence_end: eot='2'
+            if args.eos and end_offset in reference_eos_offsets: eot='2'
             
             ambiguous = '1' if end_offset in ambiguous_end_offsets else '0'
 
