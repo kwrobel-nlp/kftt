@@ -44,6 +44,8 @@ class Rating:
         self.correct_ign = 0
         self.correct_manual_known = 0
         self.correct_manual_ign = 0
+        self.correct_segmentation = 0
+        self.correct_pos = 0
 
     def step_tokens(self, ign=False, manual=False):
         self.num_tokens += 1
@@ -82,6 +84,8 @@ Correct manual:         {}
 Accuracy on manual:     {}
 Accuracy manual known:  {}
 Accuracy manual ign:    {}
+Segmentation:           {}
+Correct POS:            {}
 """.format(self.correct_tokens/self.num_tokens,
            self.num_tokens,
            self.correct_tokens,
@@ -95,15 +99,23 @@ Accuracy manual ign:    {}
            (self.correct_manual_ign+self.correct_manual_known)/(self.manual_known+self.manual_ign) if self.manual_known+self.manual_ign else 0,
            self.correct_manual_known/self.manual_known if self.manual_known else 0,
            self.correct_manual_ign/self.manual_ign if self.manual_ign else 0,
+           self.correct_segmentation/self.num_tokens,
+           self.correct_pos/self.num_tokens,
+           
            )
 
 class MorphInterp:
     def __init__(self, dagline):
         try:
-            (start, stop, self.orth, self.lemma, self.tag, self.nps, disamb) = dagline.split('\t')
+            row=dagline.split('\t')
+            #print(row)
+            if len(row)==7:
+                (start, stop, self.orth, self.lemma, self.tag, self.nps, disamb) = row
+            elif len(row)==12: #korba
+                (start, stop, self.orth, self.lemma, self.tag, _,_,_,_,_,self.nps, disamb) = row
             self.orth=self.orth.replace(' ','')
         except ValueError:
-            print(dagline)
+            print(dagline, file=sys.stderr)
             sys.exit()
         self.start = int(start)
         self.stop = int(stop)
@@ -156,6 +168,11 @@ class MorphDag:
             
             if aligned:
                 e_current = ei.stop
+                if ei.orth == gi.orth: #correct segmentation?
+                    rating.correct_segmentation += 1
+                if ei.orth == gi.orth and ei.tag.split(':')[0] == gi.tag.split(':')[0]:
+                    rating.correct_pos += 1
+                    
                 if ei.orth == gi.orth and ei.tag == gi.tag:
                     rating.step_correct(ign=is_ign, manual=gi.ismanual)
                 else:
@@ -176,7 +193,7 @@ class MorphDag:
                         break
                     ei = self.next_chosen(e_current)
 
-goldpaths = list(Path(args.golddir).glob('*.dag'))
+goldpaths = list(Path(args.golddir).glob('17*.dag'))
 if len(goldpaths) == 0:
     raise ValidationException('No .dag files were found under {}'
                               .format(args.golddir))

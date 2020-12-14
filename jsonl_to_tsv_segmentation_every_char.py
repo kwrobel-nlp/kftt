@@ -11,7 +11,7 @@ from ktagger import KText
 parser = ArgumentParser(description='Creates training data for ModelB. eot==0 if no data')
 parser.add_argument('merged_path', help='path to merged/plain/analyzed JSONL')
 parser.add_argument('output_path', help='path to output TSV')
-# parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
+parser.add_argument('--eos', action='store_true', help='mark end of sentences')
 args = parser.parse_args()
 
 
@@ -59,7 +59,7 @@ with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as 
                 space_before = False
             
             eot = '1' if end_offset in reference_end_offsets else '0'
-            #TODO if token.sentence_end: eot='2'
+            if args.eos and token.sentence_end: eot='2'
             
             ambiguous = '1' if end_offset in ambiguous_end_offsets else '0'
 

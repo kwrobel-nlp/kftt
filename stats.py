@@ -10,6 +10,7 @@ from ktagger import KText, KToken, KInterpretation
 
 parser = ArgumentParser(description='Train')
 parser.add_argument('jsonl_path', help='path to JSONL for getting text')
+parser.add_argument('--century', default=None, help='')
 
 args = parser.parse_args()
 
@@ -24,12 +25,15 @@ disamb=0
 more_than_one_disamb_but_all_same_tags=0
 unique_tags=set()
 more_than_one_disamb_but_all_same_tags_list=collections.defaultdict(int)
+intepretations = 0
+
 
 with jsonlines.open(args.jsonl_path) as reader:
     for data in reader:
         ktext = KText.load(data)
         corpus = ktext.id.split('▁')[1].split('_')[0]
-        # if corpus!='20':continue
+        if args.century is not None and corpus!=args.century:
+            continue
         texts+=1
         number_of_tokens.append(len(ktext.tokens))
         for token in ktext.tokens:
@@ -51,8 +55,8 @@ with jsonlines.open(args.jsonl_path) as reader:
                     print('MORE THAN 1 DISAMB WITH DIFFERENT TAGS', token.save())
                     more_than_one_disamb_but_all_same_tags_list['+'.join(sorted([i.tag for i in token.interpretations]))]+=1
                     # print(token.save())
-                    
-                
+
+            intepretations+=len(token.interpretations)
             for interp in token.interpretations:
                 if interp.tag=='ign':
                     igns+=(token.form,)
@@ -74,6 +78,7 @@ print('no_disamb:', no_disamb)
 print('disamb:', disamb)
 print('masks:', masks)
 print('unique tags:', len(unique_tags))
+print('interpretations:', intepretations, intepretations/sum(number_of_tokens))
 
 
 print(more_than_one_disamb_but_all_same_tags_list)
