@@ -26,12 +26,14 @@ with jsonlines.open(args.merged_path) as reader:
                 writers[corpus]=open(args.output_path+'_'+corpus, 'w')
             writer=writers[corpus]
 
-        ktext.tokens = sorted(ktext.tokens, key=lambda t: (t.start_offset, t.end_offset))
+        tokens=ktext.tokens
+        tokens = [t for t in tokens if t.has_disamb()]
+        tokens = sorted(tokens, key=lambda t: (t.start_offset, t.end_offset))
 
-        for token in ktext.tokens:
+        for token in tokens:
             # print()
-            if not token.has_disamb():
-                continue
+            #if not token.has_disamb():
+            #    continue
             tags = set([interpretation.tag for interpretation in token.interpretations if
                         not interpretation.manual])
             poss = set([tag.split(':', 1)[0] for tag in tags])
