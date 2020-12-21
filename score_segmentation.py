@@ -67,13 +67,19 @@ def get_predicted_offsets(paragraph: List[Tuple[str, int]]):
     end_offsets = []
     last_offset = 0
     last_start_offset = 0
+    sentence_end_offsets = []
+
+    last_sentence_start_offset = 0
     for token, decision in paragraph:
         text += token
-        if decision == 1:
+        if decision >= 1:
             end_offsets.append((last_start_offset, last_offset + len(token)))
             last_start_offset = last_offset + len(token)
+        if decision == 2:
+            sentence_end_offsets.append((last_sentence_start_offset, last_offset + len(token)))
+            last_sentence_start_offset = last_offset + len(token)
         last_offset += len(token)
-    return end_offsets, text
+    return end_offsets, text, sentence_end_offsets
 
 
 def get_input_offsets(paragraph: List[Tuple[str, int, int]]):
@@ -81,14 +87,20 @@ def get_input_offsets(paragraph: List[Tuple[str, int, int]]):
     end_offsets = []
     last_offset = 0
     last_start_offset = 0
+    sentence_end_offsets = []
+
+    last_sentence_start_offset = 0
     for token, ambig, decision in paragraph:
         token = token.replace(' ', '')
         text += token
-        if decision == 1:
+        if decision >= 1:
             end_offsets.append((last_start_offset, last_offset + len(token)))
             last_start_offset = last_offset + len(token)
+        if decision == 2:
+            sentence_end_offsets.append((last_sentence_start_offset, last_offset + len(token)))
+            last_sentence_start_offset = last_offset + len(token)
         last_offset += len(token)
-    return end_offsets, text
+    return end_offsets, text, sentence_end_offsets
 
 
 def get_input_unambig_offsets(paragraph: List[Tuple[str, int, int]]):
@@ -148,9 +160,11 @@ def calculate(disamb_path, pred_path, ambig_path):
     elif 'tsv' in disamb_path:
         reference_paragraphs = list(get_input_paragraphs(disamb_path))
         refs = {}
+        refs_sentence = {}
         for pred in reference_paragraphs:
-            input_offsets, text = get_input_offsets(pred)
+            input_offsets, text, input_sentence_offsets = get_input_offsets(pred)
             refs[text] = set(input_offsets)
+            refs_sentence[text] = set(input_sentence_offsets)
 
     predicted_paragraphs = list(paragraphs(pred_path))
     assert len(predicted_paragraphs) == len(reference_paragraphs)
@@ -158,20 +172,24 @@ def calculate(disamb_path, pred_path, ambig_path):
     assert len(predicted_paragraphs) == len(input_paragraphs)
 
     preds = {}
-
+    preds_sentence = {}
+    
     input_refs = {}
+    input_refs_sentence = {}
     unambigs = {}
     for pred in predicted_paragraphs:
-        pred_offsets, text = get_predicted_offsets(pred)
+        pred_offsets, text, pred_sentence_offsets = get_predicted_offsets(pred)
         preds[text] = set(pred_offsets)
+        preds_sentence[text] = set(pred_sentence_offsets)
 
     for pred in input_paragraphs:
         unambig_offsets, text = get_input_unambig_offsets(pred)
         unambigs[text] = set(unambig_offsets)
 
     for pred in input_paragraphs:
-        input_offsets, text = get_input_offsets(pred)
+        input_offsets, text, input_sentence_offsets = get_input_offsets(pred)
         input_refs[text] = set(input_offsets)
+        input_refs_sentence[text] = set(input_sentence_offsets)
 
     print("\n".join(sorted(preds.keys() - refs.keys())))
     print('---')
@@ -182,7 +200,7 @@ def calculate(disamb_path, pred_path, ambig_path):
     assert not (refs.keys() - unambigs.keys())
     assert not (unambigs.keys() - refs.keys())
 
-    return refs, preds, unambigs, input_refs
+    return refs, preds, unambigs, input_refs, refs_sentence, preds_sentence, input_refs_sentence
 
 
 def calculate2(refs, preds, unambigs):
@@ -217,6 +235,28 @@ def calculate2(refs, preds, unambigs):
     return tp, fp, fn,precision, recall, f1, atp, afp, afn, aprecision, arecall, af1
 
 
+def calculate_sbd(refs, preds, unambigs, without_last=False):
+    tp = fp = fn = 0
+
+    for ref_text, ref_offsets in refs.items():
+        pred_offsets = preds[ref_text]
+
+        ref_offsets = set([y for x,y in ref_offsets])
+        pred_offsets = set([y for x,y in pred_offsets])
+
+        if without_last:
+            ref_offsets.discard(len(ref_text))
+            pred_offsets.discard(len(ref_text))
+
+        tp += len(ref_offsets & pred_offsets)
+        fn += len(ref_offsets - pred_offsets)
+        fp += len(pred_offsets - ref_offsets)
+
+    print('SBD')
+    precision, recall, f1 = score(tp, fp, fn)
+
+    return tp, fp, fn, precision, recall, f1
+
 if __name__ == '__main__':
     parser = ArgumentParser(description='Score segmentation (ignore spaces)')
     parser.add_argument('disamb_path', help='path to disamb JSONL or TSV (reference)')
@@ -225,8 +265,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    refs, preds, unambigs, input_refs = calculate(args.disamb_path, args.pred_path, args.tsv_path)
+    refs, preds, unambigs, input_refs, refs_sentence, preds_sentence, input_refs_sentence = calculate(args.disamb_path, args.pred_path, args.tsv_path)
     calculate2(refs, preds, unambigs)
-
+    print('SBD')
+    calculate_sbd(refs_sentence, preds_sentence, {})
+    print('SBD without last')
+    calculate_sbd(refs_sentence, preds_sentence, {}, without_last=True)
+    
     print('Against training')
     calculate2(input_refs, preds, unambigs)

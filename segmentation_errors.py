@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    refs, preds, unambigs, input_refs = calculate(args.disamb_path, args.pred_path, args.tsv_path)
+    refs, preds, unambigs, input_refs, refs_sentence, preds_sentence, input_refs_sentence = calculate(args.disamb_path, args.pred_path, args.tsv_path)
     calculate2(refs, preds, unambigs)
 
     print('Against training')
