@@ -52,14 +52,21 @@ def paragraphs(path):
 def get_reference_offsets(paragraph: KText):
     text = ''
     end_offsets = []
+    sentence_end_offsets = []
+    last_sentence_start_offset = 0
     last_offset = 0
     for token in paragraph.tokens:
         if token.has_disamb() or len(token.interpretations)==0: # in UGC missing interpretations
             form = token.form.replace(' ', '')
             end_offsets.append((last_offset, last_offset + len(form)))
+            
+            if token.sentence_end:
+                sentence_end_offsets.append((last_sentence_start_offset, last_offset + len(form)))
+                last_sentence_start_offset=last_offset + len(form)
+
             last_offset += len(form)
             text += form
-    return end_offsets, text
+    return end_offsets, text, sentence_end_offsets
 
 
 def get_predicted_offsets(paragraph: List[Tuple[str, int]]):
@@ -154,9 +161,12 @@ def calculate(disamb_path, pred_path, ambig_path):
                 reference_paragraphs.append(ktext)
 
         refs = {}
+        refs_sentence = {}
         for ref in reference_paragraphs:
-            ref_offsets, text = get_reference_offsets(ref)
+            ref_offsets, text, ref_sentence_offsets = get_reference_offsets(ref)
             refs[text] = set(ref_offsets)
+            refs_sentence[text] = set(ref_sentence_offsets)
+            
     elif 'tsv' in disamb_path:
         reference_paragraphs = list(get_input_paragraphs(disamb_path))
         refs = {}
