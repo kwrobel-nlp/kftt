@@ -6,6 +6,7 @@ Morphosyntactic tagger for Polish, the [winner](http://poleval.pl/results/) of P
 |:------------------------:|:--------:|:------------:|:----------:|:-------------:|
 | KFTT train+devel wo_morf |   95.63% |       95.95% |     81.91% |        67.30% |
 | KFTT train+devel         |   95.73% |       96.07% |     81.02% |        67.81% |
+| KRNNT train              |   92.07% |       93.00% |     48.63% |               |
 
 KFTT train+devel accuracy on different parts of the test corpus:
 
