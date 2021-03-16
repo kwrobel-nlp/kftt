@@ -66,9 +66,11 @@ def read_examples_from_file(data_dir, mode):
                     labels = []
             else:
                 splits = line.split("\t")
+                assert len(splits[0]) > 0
                 words.append(splits[0])
                 if len(splits) > 1:
                     labels.append(splits[-1].replace("\n", ""))
+                    assert len(splits[-1].replace("\n", "")) > 0
                 else:
                     # Examples could have no label for mode = "test"
                     labels.append("O")
@@ -219,6 +221,10 @@ def get_labels(path):
             labels = f.read().splitlines()
         if "O" not in labels:
             labels = ["O"] + labels
+        try:
+            labels[labels.index('')]='[EMPTY]'
+        except:
+            pass
         return labels
     else:
         return ["O", "B-MISC", "I-MISC", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC"]

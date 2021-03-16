@@ -43,7 +43,7 @@ def segments_to_tokens(segments):
         
         #TODO brakuje info o spacjach, jeśli klasyfikator nie podzielił przy spacji: "dowolny'czas'" 
         # a powinno być "dowolny 'czas'" - prawdopodobnie fix ambig to załatwia
-        if pred == 1:
+        if pred >= 1:
             tokens.append(token)
             token = ''
     assert token==''
