@@ -4,6 +4,7 @@ import jsonlines
 from tqdm import tqdm
 
 from ktagger import KText
+from utils2 import jsonlines_gzip_reader, jsonlines_gzip_writer
 
 parser = ArgumentParser(
     description='Merge JSONLs analyzed (output form Morfeusz) with disamb (reference data). Keep disamb sentence ends. If a gold tag is missing then is set to MASK.')
@@ -13,12 +14,12 @@ parser.add_argument('output_path', help='path to merged JSONL')
 args = parser.parse_args()
 
 reference_paragraphs = {}
-with jsonlines.open(args.disamb_path) as reader:
+with jsonlines_gzip_reader(args.disamb_path) as reader:
     for data in tqdm(reader):
         ktext = KText.load(data)
         reference_paragraphs[ktext.id] = ktext
 
-with jsonlines.open(args.plain_path) as reader, jsonlines.open(args.output_path, mode='w') as writer:
+with jsonlines_gzip_reader(args.plain_path) as reader, jsonlines_gzip_writer(args.output_path, mode='w') as writer:
     for data in tqdm(reader):
         ktext = KText.load(data)
         # print(ktext.id)

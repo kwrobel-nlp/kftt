@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import jsonlines
 
 from ktagger import KText
+from utils2 import jsonlines_gzip_reader
 
 parser = ArgumentParser(description='Converts disamb JSONL to gold DAG')
 parser.add_argument('disamb_path', help='path to disamb JSONL')
@@ -10,7 +11,7 @@ parser.add_argument('output_path', help='path to output DAG')
 parser.add_argument('--sentences', action='store_true', help='split to sentences')
 args = parser.parse_args()
 
-with jsonlines.open(args.disamb_path) as reader, open(args.output_path, 'w') as writer:
+with jsonlines_gzip_reader(args.disamb_path) as reader, open(args.output_path, 'w') as writer:
     for data in reader:
         ktext = KText.load(data)
 

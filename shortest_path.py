@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import jsonlines
 
 from ktagger import KText
-
+from utils2 import jsonlines_gzip_reader
 
 def shortest_path(ktext: KText, longest=False):
     start_positions = collections.defaultdict(dict)
@@ -35,12 +35,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    with jsonlines.open(args.path) as reader:
+    with jsonlines_gzip_reader(args.path) as reader:
         for data in reader:
             ktext = KText.load(data)
 
             tokens = shortest_path(ktext, longest=args.longest)
 
             for token in tokens:
-                print(" ".join([token.form.replace(' ', ''), 'X', '1', 'X']))
+                #TODO detect token end_sentence
+                # print(token.sentence_end)
+                print(" ".join([token.form.replace(' ', ''), 'X', '2' if token.sentence_end else '1', 'X']))
             print()

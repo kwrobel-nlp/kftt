@@ -193,7 +193,7 @@ class MorphDag:
                         break
                     ei = self.next_chosen(e_current)
 
-goldpaths = list(Path(args.golddir).glob('17*.dag'))
+goldpaths = list(Path(args.golddir).glob('*.dag'))
 if len(goldpaths) == 0:
     raise ValidationException('No .dag files were found under {}'
                               .format(args.golddir))

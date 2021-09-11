@@ -108,6 +108,7 @@ def expand(word_tokens, max_length, start, end):
 
 
 def windows(word_tokens, max_length, min_context):
+    
     results = []
     content = max_length - 2 * min_context
     start_content = 0
@@ -167,8 +168,8 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
 
     logger.info("Creating features from dataset file at %s", args.data_dir)
     examples = read_examples_from_file(args.data_dir, mode)
-    print(len(examples))
-    print(examples[0])  # list of words in one document (sentence)
+    # print(len(examples))
+    # print(examples[0])  # list of words in one document (sentence)
 
     out_label_listX=[]
     preds_listX=[]
@@ -180,7 +181,7 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
         word_tokens_lengths=[len(tokenizer.tokenize(word)) for word in example.words]
 
         ws=windows(word_tokens_lengths, max_length, min_context)
-        print(ws)
+        # print(ws)
         
         text_examples=[]
         for start_all, start_content, end_content, end_all in ws:
@@ -357,33 +358,14 @@ class Tagger():
             self.model = torch.nn.DataParallel(self.model)
         self.model.eval()
 
-    def predict(self):
-        import time
-        start_time = time.time()
-        result, predictions = self.evaluate(mode="test")
-        print("--- %s seconds ---" % (time.time() - start_time))
-        # Save results
-        output_test_results_file = os.path.join(args.output_dir, "test_results_long.txt")
-        with open(output_test_results_file, "w") as writer:
-            for key in sorted(result.keys()):
-                writer.write("{} = {}\n".format(key, str(result[key])))
-        # Save predictions
-        output_test_predictions_file = os.path.join(args.output_dir, "test_predictions_long.txt")
-        with open(output_test_predictions_file, "w") as writer:
-            with open(os.path.join(args.data_dir, "test.txt"), "r") as f:
-                example_id = 0
-                for line in f:
-                    if line.startswith("-DOCSTART-") or line == "" or line == "\n":
-                        writer.write(line)
-                        if not predictions[example_id]:
-                            example_id += 1
-                    elif predictions[example_id]:
-                        output_line = line.split("\t")[0] + "\t" + predictions[example_id].pop(0) + "\n"
-                        writer.write(output_line)
-                    else:
-                        logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split("\t")[0])
-
-    def evaluate(self, mode):
+    def predict(self, examples):
+        # import time
+        # start_time = time.time()
+        result, predictions = self.evaluate(examples, mode="test")
+        # print("--- %s seconds ---" % (time.time() - start_time))
+        return result, predictions
+        
+    def evaluate(self, examples, mode):
         # eval_dataset = load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode=mode)
 
         
@@ -399,10 +381,10 @@ class Tagger():
 
         # Load data features from cache or dataset file
 
-        logger.info("Creating features from dataset file at %s", args.data_dir)
-        examples = read_examples_from_file(args.data_dir, mode)
-        print(len(examples))
-        print(examples[0])  # list of words in one document (sentence)
+        logger.info("Creating features from dataset file at")
+        
+        # print('len(examples)', len(examples))
+        # print(examples[0])  # list of words in one document (sentence)
 
         out_label_listX = []
         preds_listX = []
@@ -414,7 +396,7 @@ class Tagger():
             word_tokens_lengths = [len(self.tokenizer.tokenize(word)) for word in example.words]
 
             ws = windows(word_tokens_lengths, max_length, min_context)
-            print(ws)
+            print('ws', ws)
 
             text_examples = []
             for start_all, start_content, end_content, end_all in ws:
@@ -422,6 +404,7 @@ class Tagger():
                                   labels=example.labels[start_all:end_all])
                 text_examples.append(ex)
 
+            # print('len(text_examples)', len(text_examples))
             # przed tym trzeba podzielić
             features = convert_examples_to_features(
                 text_examples,
@@ -442,7 +425,8 @@ class Tagger():
                 pad_token_label_id=self.pad_token_label_id,
             )
 
-           
+            # print('features', features)
+
             # Convert to Tensors and build dataset
             all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
             all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
@@ -493,6 +477,7 @@ class Tagger():
                 out_label_list = [[] for _ in range(out_label_ids.shape[0])]
                 preds_list = [[] for _ in range(out_label_ids.shape[0])]
 
+                # print('out_label_ids.shape', out_label_ids.shape)
                 for i in range(out_label_ids.shape[0]):
                     for j in range(out_label_ids.shape[1]):
                         if out_label_ids[i, j] != self.pad_token_label_id:
@@ -505,6 +490,7 @@ class Tagger():
                     a.extend(out_label_list[i][start_content - start_all:end_content - start_all])
                     b.extend(preds_list[i][start_content - start_all:end_content - start_all])
 
+            # print('len(a), len(b)', len(a), len(b))
             out_label_listX.append(a)
             preds_listX.append(b)
             # results = {
@@ -664,115 +650,31 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
     args = parser.parse_args()
 
-    
-
-    # Setup distant debugging if needed
-    if args.server_ip and args.server_port:
-        # Distant debugging - see https://code.visualstudio.com/docs/python/debugging#_attach-to-a-local-script
-        import ptvsd
-
-        print("Waiting for debugger attach")
-        ptvsd.enable_attach(address=(args.server_ip, args.server_port), redirect_output=True)
-        ptvsd.wait_for_attach()
-
-    # Setup CUDA, GPU & distributed training
-    if args.local_rank == -1 or args.no_cuda:
-        device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-        args.n_gpu = torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
-        torch.cuda.set_device(args.local_rank)
-        device = torch.device("cuda", args.local_rank)
-        torch.distributed.init_process_group(backend="nccl")
-        args.n_gpu = 1
-    args.device = device
-
-    # Setup logging
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
-    )
-    logger.warning(
-        "Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-        args.local_rank,
-        device,
-        args.n_gpu,
-        bool(args.local_rank != -1),
-        args.fp16,
-    )
-
-    # Set seed
-    set_seed(args)
-
-    # Prepare CONLL-2003 task
     labels = get_labels(args.labels)
-    num_labels = len(labels)
-    # Use cross entropy ignore index as padding label id so that only real label ids contribute to the loss later
-    pad_token_label_id = CrossEntropyLoss().ignore_index
+    examples = read_examples_from_file(args.data_dir, 'test')
+    tagger=Tagger(labels, args.model_type, args.model_name_or_path, no_cuda=args.no_cuda, cache_dir=args.cache_dir, per_gpu_eval_batch_size=args.per_gpu_eval_batch_size)
+    result, predictions = tagger.predict(examples)
 
-    # Load pretrained model and tokenizer
-    if args.local_rank not in [-1, 0]:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
-
-    args.model_type = args.model_type.lower()
-    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
-    config = config_class.from_pretrained(
-        args.config_name if args.config_name else args.model_name_or_path,
-        num_labels=num_labels,
-        cache_dir=args.cache_dir if args.cache_dir else None,
-    )
-    # tokenizer = tokenizer_class.from_pretrained(
-    #     args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
-    #     do_lower_case=args.do_lower_case,
-    #     cache_dir=args.cache_dir if args.cache_dir else None,
-    # )
-    model = model_class.from_pretrained(
-        args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
-        config=config,
-        cache_dir=args.cache_dir if args.cache_dir else None,
-    )
-
-    if args.local_rank == 0:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
-
-    model.to(args.device)
-
-    logger.info("Evaluation parameters %s", args)
-
-
-
-    # Evaluation
-    if args.do_predict and args.local_rank in [-1, 0]:
-        tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
-        model = model_class.from_pretrained(args.output_dir)
-        model.to(args.device)
-
-        import time
-        start_time = time.time()
-        result, predictions = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="test")
-        print("--- %s seconds ---" % (time.time() - start_time))
-        # Save results
-        output_test_results_file = os.path.join(args.output_dir, "test_results_long.txt")
-        with open(output_test_results_file, "w") as writer:
-            for key in sorted(result.keys()):
-                writer.write("{} = {}\n".format(key, str(result[key])))
-        # Save predictions
-        output_test_predictions_file = os.path.join(args.output_dir, "test_predictions_long.txt")
-        with open(output_test_predictions_file, "w") as writer:
-            with open(os.path.join(args.data_dir, "test.txt"), "r") as f:
-                example_id = 0
-                for line in f:
-                    if line.startswith("-DOCSTART-") or line == "" or line == "\n":
-                        writer.write(line)
-                        if not predictions[example_id]:
-                            example_id += 1
-                    elif predictions[example_id]:
-                        output_line = line.split("\t")[0] + "\t" + predictions[example_id].pop(0) + "\n"
-                        writer.write(output_line)
-                    else:
-                        logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split("\t")[0])
-
+    # Save results
+    output_test_results_file = os.path.join(args.output_dir, "test_results_long.txt")
+    with open(output_test_results_file, "w") as writer:
+        for key in sorted(result.keys()):
+            writer.write("{} = {}\n".format(key, str(result[key])))
+    # Save predictions
+    output_test_predictions_file = os.path.join(args.output_dir, "test_predictions_long.txt")
+    with open(output_test_predictions_file, "w") as writer:
+        with open(os.path.join(args.data_dir, "test.txt"), "r") as f:
+            example_id = 0
+            for line in f:
+                if line.startswith("-DOCSTART-") or line == "" or line == "\n":
+                    writer.write(line)
+                    if not predictions[example_id]:
+                        example_id += 1
+                elif predictions[example_id]:
+                    output_line = line.split("\t")[0] + "\t" + predictions[example_id].pop(0) + "\n"
+                    writer.write(output_line)
+                else:
+                    logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split("\t")[0])
 
 
 if __name__ == "__main__":

@@ -5,8 +5,8 @@ from typing import List, Tuple
 import jsonlines
 
 from ktagger import KText
-
-
+import sys
+from utils2 import jsonlines_gzip_reader
 
 
 def get_input_paragraphs(path):
@@ -143,18 +143,18 @@ def get_input_wospace_offsets(paragraph: List[Tuple[str, int, int]]): #TODO
     return unambig_offsets, text
 
 def score(tp, fp, fn):
-    print(f"TP: {tp} FP: {fp} FN: {fn}")
+    print(f"TP:\t{tp}\nFP:\t{fp}\nFN:\t{fn}")
     precision = tp / (tp + fp) if tp + fp > 0 else 0.0
     recall = tp / (tp + fn) if tp + fn > 0 else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
-    print(f"Precision: {precision * 100:.4f} Recall: {recall * 100:.4f} F1: {f1 * 100:.4f}")
+    print(f"Precision:\t{precision * 100:.4f}\nRecall:\t{recall * 100:.4f}\nF1:\t{f1 * 100:.4f}")
     return precision, recall, f1
 
 
 def calculate(disamb_path, pred_path, ambig_path):
     if 'jsonl' in disamb_path:
         reference_paragraphs = []
-        with jsonlines.open(disamb_path) as reader:
+        with jsonlines_gzip_reader(disamb_path) as reader:
             for data in reader:
                 ktext = KText.load(data)
                 # ktext.find_ambiguous_end_offsets()
@@ -201,9 +201,9 @@ def calculate(disamb_path, pred_path, ambig_path):
         input_refs[text] = set(input_offsets)
         input_refs_sentence[text] = set(input_sentence_offsets)
 
-    print("\n".join(sorted(preds.keys() - refs.keys())))
-    print('---')
-    print("\n".join(sorted(refs.keys() - preds.keys())))
+    print("\n".join(sorted(preds.keys() - refs.keys())), file=sys.stderr)
+    print('---', file=sys.stderr)
+    print("\n".join(sorted(refs.keys() - preds.keys())), file=sys.stderr)
 
     assert not (preds.keys() - refs.keys())
     assert not (refs.keys() - preds.keys())
@@ -234,7 +234,7 @@ def calculate2(refs, preds, unambigs):
         afp += len(pred_offsets2 - ambig_ref_offsets)
 
         a += len(ambig_ref_offsets)
-    print(a)
+    print('Ambig','\t', a)
 
     print('ALL')
     precision, recall, f1 = score(tp, fp, fn)
@@ -262,7 +262,7 @@ def calculate_sbd(refs, preds, unambigs, without_last=False):
         fn += len(ref_offsets - pred_offsets)
         fp += len(pred_offsets - ref_offsets)
 
-    print('SBD')
+    # print('SBD')
     precision, recall, f1 = score(tp, fp, fn)
 
     return tp, fp, fn, precision, recall, f1
@@ -276,11 +276,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     refs, preds, unambigs, input_refs, refs_sentence, preds_sentence, input_refs_sentence = calculate(args.disamb_path, args.pred_path, args.tsv_path)
+    
+    print('Name','\t',args.pred_path)
     calculate2(refs, preds, unambigs)
     print('SBD')
     calculate_sbd(refs_sentence, preds_sentence, {})
     print('SBD without last')
     calculate_sbd(refs_sentence, preds_sentence, {}, without_last=True)
     
-    print('Against training')
-    calculate2(input_refs, preds, unambigs)
+    # print('Against training')
+    # calculate2(input_refs, preds, unambigs)

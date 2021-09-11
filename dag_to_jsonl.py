@@ -10,6 +10,7 @@ import jsonlines as jsonlines
 from tqdm import tqdm
 
 from ktagger import KInterpretation, KToken, KText
+from utils2 import jsonlines_gzip_reader, jsonlines_gzip_writer
 
 """
 Reads DAGs from Morfeusz PolEval output (disambiguated or not).
@@ -145,6 +146,7 @@ def dag_offsets(paragraph):
     text = original_text(paragraph)
     start_offsets = {}
     end_offsets = {0: 0}
+    # print(paragraph[TOKENS])
     for token in paragraph[TOKENS]:
         start_position = token[START_POSITION]
         end_position = token[END_POSITION]
@@ -170,6 +172,10 @@ def dag_offsets(paragraph):
                 token[END_OFFSET] = None
         except KeyError:
             print('OMITTING node without incoming edges', path, token[SEGMENT], file=sys.stderr)
+            # print(token)
+            # print(start_offsets)
+            # print(end_offsets)
+            # sys.exit()
             token[START_OFFSET] = None
             token[END_OFFSET] = None
 
@@ -191,7 +197,7 @@ def original_text(paragraph):
 
     return ''.join(strings)
 
-def convert_to_ktagger(path, korba=False):
+def convert_to_ktagger(path, corpus, korba=False, only_disamb=False) -> [KText]:
     file_name = os.path.basename(path)
     if korba:
         paragraphs = read_dag_korba(path)
@@ -202,7 +208,7 @@ def convert_to_ktagger(path, korba=False):
 
     for paragraph_index, paragraph in enumerate(paragraphs):
         # print(paragraph_index)
-        if args.only_disamb:
+        if only_disamb:
             tokens = [token for token in paragraph[TOKENS] if is_disamb(token)]
             paragraph[TOKENS] = tokens
 
@@ -227,7 +233,7 @@ def convert_to_ktagger(path, korba=False):
             ktoken.end_position = token[END_POSITION]
             for interpretation in token[INTERPRETATIONS]:
                 disamb = 'disamb' in interpretation[DISAMB]
-                if args.only_disamb and not disamb:
+                if only_disamb and not disamb:
                     continue
                 manual = 'manual' in interpretation[DISAMB]
                 kinterpretation = KInterpretation(interpretation[LEMMA], interpretation[TAG], disamb, manual)
@@ -249,20 +255,20 @@ def convert_to_ktagger(path, korba=False):
         assert payload == ktext.save()
         yield ktext
 
-
-parser = ArgumentParser(description='Train')
-parser.add_argument('path', help='path pattern to directory with DAG data')
-parser.add_argument('output_path', help='path JSONL output')
-parser.add_argument('corpus_name', help='corpus name')
-parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
-parser.add_argument('--korba', action='store_true', help='korba format')
-args = parser.parse_args()
-
-corpus = args.corpus_name
-
-with jsonlines.open(args.output_path, mode='w') as writer:
+if __name__ == '__main__':
+    parser = ArgumentParser(description='Train')
+    parser.add_argument('path', help='path pattern to directory with DAG data')
+    parser.add_argument('output_path', help='path JSONL output')
+    parser.add_argument('corpus_name', help='corpus name')
+    parser.add_argument('--only_disamb', action='store_true', help='save only disamb versions of tokens and interpretations')
+    parser.add_argument('--korba', action='store_true', help='korba format')
+    args = parser.parse_args()
     
-    for path in tqdm(sorted(glob.glob(args.path))):
-        # print(path)
-        for ktext in convert_to_ktagger(path, korba=args.korba):
-            writer.write(ktext.save())
+    corpus = args.corpus_name
+    
+    with jsonlines_gzip_writer(args.output_path) as writer:
+        
+        for path in tqdm(sorted(glob.glob(args.path))):
+            # print(path)
+            for ktext in convert_to_ktagger(path, corpus, korba=args.korba, only_disamb=args.only_disamb):
+                writer.write(ktext.save())

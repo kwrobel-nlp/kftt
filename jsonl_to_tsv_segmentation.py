@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 import jsonlines
 
 from ktagger import KText
+from utils2 import jsonlines_gzip_reader, jsonlines_gzip_writer
 
 parser = ArgumentParser(description='Train')
 parser.add_argument('merged_path', help='path to merged JSONL')
@@ -14,7 +15,7 @@ parser.add_argument('--eos', action='store_true', help='mark end of sentences')
 args = parser.parse_args()
 
 
-with jsonlines.open(args.merged_path) as reader, open(args.output_path, 'w') as writer:
+with jsonlines_gzip_reader(args.merged_path) as reader, open(args.output_path, 'w') as writer:
     for data in reader:
         ktext = KText.load(data)
 

@@ -25,6 +25,7 @@ import tsv
 from helpers import get_embeddings
 from tokenization import FlairEmbeddingsEnd, FlairEmbeddingsBoth, FlairEmbeddingsOuter, FlairEmbeddingsStart
 
+
 parser = ArgumentParser(description='Train')
 parser.add_argument('data_folder', help='directory with corpus files')
 parser.add_argument('train', help='train file name')

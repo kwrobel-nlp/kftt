@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import jsonlines
 
 from ktagger import KText
+from utils2 import jsonlines_gzip_reader
 
 parser = ArgumentParser(description='Convert JSONL to TSV (for training).')
 parser.add_argument('merged_path', help='path to merged JSONL')
@@ -16,7 +17,7 @@ if args.c:
 else:
     writer=open(args.output_path, 'w')
 
-with jsonlines.open(args.merged_path) as reader:
+with jsonlines_gzip_reader(args.merged_path) as reader:
     for data in reader:
         ktext = KText.load(data)
         
