@@ -361,9 +361,9 @@ class Tagger():
     def predict(self, examples):
         # import time
         # start_time = time.time()
-        result, predictions = self.evaluate(examples, mode="test")
+        result, predictions, probs = self.evaluate(examples, mode="test")
         # print("--- %s seconds ---" % (time.time() - start_time))
-        return result, predictions
+        return result, predictions, probs
         
     def evaluate(self, examples, mode):
         # eval_dataset = load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode=mode)
@@ -388,8 +388,10 @@ class Tagger():
 
         out_label_listX = []
         preds_listX = []
+        preds_prob_listX = []
 
-        for example in tqdm(examples, desc="Evaluating"):
+        # for example in tqdm(examples, desc="Evaluating"):
+        for example in examples:
             max_length = 500
             min_context = 128
             l = len(example.words)  # TODO number of segments for each word? word_tokens = tokenizer.tokenize(word)
@@ -446,8 +448,8 @@ class Tagger():
             # batch = next(iter(eval_dataloader))
             a = []
             b = []
-            for batch, (start_all, start_content, end_content, end_all) in tqdm(zip(eval_dataloader, ws),
-                                                                                desc="Evaluating"):
+            c=[]
+            for batch, (start_all, start_content, end_content, end_all) in zip(eval_dataloader, ws):
                 preds = None
                 out_label_ids = None
                 batch = tuple(t.to(self.device) for t in batch)
@@ -470,12 +472,15 @@ class Tagger():
                     preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                     out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
+                pred_probs=torch.max(torch.softmax(torch.tensor(preds), 2), 2).values #np.max(preds, axis=2)
+                # print('pred_probs', pred_probs)
                 preds = np.argmax(preds, axis=2)
 
                 label_map = {i: label for i, label in enumerate(self.labels)}
 
                 out_label_list = [[] for _ in range(out_label_ids.shape[0])]
                 preds_list = [[] for _ in range(out_label_ids.shape[0])]
+                preds_prob_list = [[] for _ in range(out_label_ids.shape[0])]
 
                 # print('out_label_ids.shape', out_label_ids.shape)
                 for i in range(out_label_ids.shape[0]):
@@ -483,16 +488,19 @@ class Tagger():
                         if out_label_ids[i, j] != self.pad_token_label_id:
                             out_label_list[i].append(label_map[out_label_ids[i][j]])
                             preds_list[i].append(label_map[preds[i][j]])
+                            preds_prob_list[i].append(pred_probs[i][j])
 
                 # join
 
                 for i in range(len(out_label_list)):
                     a.extend(out_label_list[i][start_content - start_all:end_content - start_all])
                     b.extend(preds_list[i][start_content - start_all:end_content - start_all])
+                    c.extend(preds_prob_list[i][start_content - start_all:end_content - start_all])
 
             # print('len(a), len(b)', len(a), len(b))
             out_label_listX.append(a)
             preds_listX.append(b)
+            preds_prob_listX.append(c)
             # results = {
             #     "loss": eval_loss,
             #     "precision": precision_score(out_label_list, preds_list),
@@ -515,9 +523,9 @@ class Tagger():
             for key in sorted(results.keys()):
                 logger.info("  %s = %s", key, str(results[key]))
 
-            return results, preds_listX
+            return results, preds_listX, preds_prob_listX
         except IndexError:  # no output labels in file
-            return {}, preds_listX
+            return {}, preds_listX, preds_prob_listX
 
 
 def main():
@@ -653,7 +661,7 @@ def main():
     labels = get_labels(args.labels)
     examples = read_examples_from_file(args.data_dir, 'test')
     tagger=Tagger(labels, args.model_type, args.model_name_or_path, no_cuda=args.no_cuda, cache_dir=args.cache_dir, per_gpu_eval_batch_size=args.per_gpu_eval_batch_size)
-    result, predictions = tagger.predict(examples)
+    result, predictions, probs = tagger.predict(examples)
 
     # Save results
     output_test_results_file = os.path.join(args.output_dir, "test_results_long.txt")

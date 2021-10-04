@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from flair.data import Token
+from flair.data import Token, Sentence
 
 import tsv
+from jsonl_to_tsv_segmentation_every_char2 import set_space_after
 
 parser = ArgumentParser(description='Predict segmentation on TSV')
 parser.add_argument('model', help='path to model')
@@ -24,12 +25,10 @@ train = tsv.TSVDataset(
     document_separator_token=None
 )
 
+
+
 for sentence in train:
-    for i in range(1, len(sentence.tokens)):
-        token: Token = sentence.tokens[i]
-        token_before: Token = sentence.tokens[i - 1]
-        if token.get_tag('space_before').value == '0':
-            token_before.whitespace_after = False
+    set_space_after(sentence)
 
 from flair.models import SequenceTagger
 

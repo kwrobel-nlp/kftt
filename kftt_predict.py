@@ -7,7 +7,7 @@ from flair.models import SequenceTagger
 
 from dag_to_jsonl import convert_to_ktagger
 from jsonl_to_tsv_segmentation_every_char2 import FlairConverter
-from ktagger import KText, KToken
+from ktagger import KText, KToken, KInterpretation
 from run_ner_predict2 import Tagger
 from test_data_tagging import merge, merge2
 from utils_ner import get_labels, InputExample
@@ -145,14 +145,26 @@ class KFTT():
         # convert to InputExamples
         example = self._convert_to_example(text)
         # examples = read_examples_from_file(args.data_dir, 'test')
-        result, predictions = self.tagger2.predict([example])
+        result, predictions, probs = self.tagger2.predict([example])
         # print(result)
-        # print(predictions)
-        text = self.merge3(predictions[0], text)
+        # print('predictions', predictions)
+        # print('probs', probs)
+        text = self.merge3(predictions[0], text, probs=probs[0])
 
         for token in text.tokens:
             lemma=self.lemmatizer.lemmatize(token)
             token.predicted_lemma=lemma
+            #find such interp and set as disamb
+            found_interp=False
+            for interp in token.interpretations:
+                if interp.tag==token.predicted and interp.lemma==token.predicted_lemma:
+                    interp.disamb=True
+                    found_interp=True
+                    break
+            if not found_interp:
+                interp=KInterpretation(token.predicted_lemma, token.predicted, disamb=True, manual=True)
+                token.add_interpretation(interp)
+            
             # print(f'{token.form}\t{token.predicted}\t{lemma}')
         return text
 
@@ -168,11 +180,17 @@ class KFTT():
 
         return InputExample('X', words=words, labels=labels)
 
-    def merge3(self, predictions, text: KText) -> KText:
+    def merge3(self, predictions, text: KText, probs=None) -> KText:
         # print(len(predictions), len(text.tokens))
         assert len(predictions) == len(text.tokens)  # 412 296
-        for pred, token in zip(predictions, text.tokens):
-            token.predicted = pred
+        if probs is not None:
+            assert len(predictions) == len(probs)
+            for pred, prob, token in zip(predictions, probs, text.tokens):
+                token.predicted = pred
+                token.predicted_score=prob
+        else:
+            for pred, token in zip(predictions, text.tokens):
+                token.predicted = pred
 
         return text
 

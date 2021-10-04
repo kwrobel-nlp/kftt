@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--tokenizer_batch_size', type=int, default=32, help='tokenizer batch size')
     parser.add_argument('--korba', action='store_true', help='korba format')
     parser.add_argument('--no_cuda', action='store_true', help='dont use CUDA')
+    parser.add_argument('--interpretations', action='store_true', help='output all interpretations')
     parser.add_argument('--per_gpu_eval_batch_size', type=int, default=1, help='dont change')  # TODO
     parser.add_argument('--model_type', default='xlmroberta', help='type of tagger transformer model')
     parser.add_argument('--model_name_or_path', default='', help='path to tagger transformer model')
@@ -42,12 +43,26 @@ if __name__ == '__main__':
             kftt.tag(ktext)
             
             for i, token in enumerate(ktext.tokens):
-                
-                col9='manual' if not token.interpretations else '' #manual
-                col10='eos' if token.sentence_end else '' #eos
-                col11='' if token.space_before else 'nps' #nps
-                writer.write('\t'.join([str(i), str(i + 1), token.form, token.predicted_lemma, token.predicted, '','','1.000',col9,col10, col11, 'disamb']))
-                writer.write('\n')
+                col10 = 'eos' if token.sentence_end else ''  # eos
+                col11 = '' if token.space_before else 'nps'  # nps
+                if not args.interpretations:
+                    col9='manual' if not token.interpretations else '' #manual
+                    score = f'{token.predicted_score:.3f}'
+                    writer.write('\t'.join([str(i), str(i + 1), token.form, token.predicted_lemma, token.predicted, '','',score,col9,col10, col11, 'disamb']))
+                    writer.write('\n')
+                else:
+                    for interp in token.interpretations:
+                        col9 = 'manual' if interp.manual else ''
+                        if interp.disamb:
+                            score=f'{token.predicted_score:.3f}'
+                        else:
+                            score='0.000'
+                        disamb = 'disamb' if interp.disamb else ''
+                        writer.write('\t'.join(
+                            [str(i), str(i + 1), token.form, interp.lemma, interp.tag, '', '', score,
+                             col9, col10, col11, disamb]))
+                        writer.write('\n')
+                    
             writer.write('\n')
         writer.close()
         
