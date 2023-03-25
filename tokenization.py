@@ -28,7 +28,8 @@ class FlairEmbeddingsEnd(TokenEmbeddings):
 
         cache_dir = Path("embeddings")
 
-        aws_path: str = "https://s3.eu-central-1.amazonaws.com/alan-nlp/resources"
+        #aws_path: str = "https://s3.eu-central-1.amazonaws.com/alan-nlp/resources"
+        aws_path: str = "https://flair.informatik.hu-berlin.de/resources/embeddings/flair"
 
         self.PRETRAINED_MODEL_ARCHIVE_MAP = {
             # multilingual models
@@ -120,8 +121,8 @@ class FlairEmbeddingsEnd(TokenEmbeddings):
             "no-forward": f"{aws_path}/embeddings-stefan-it/lm-no-opus-large-forward-v0.1.pt",
             "no-backward": f"{aws_path}/embeddings-stefan-it/lm-no-opus-large-backward-v0.1.pt",
             # Polish
-            "pl-forward": f"{aws_path}/embeddings/lm-polish-forward-v0.2.pt",
-            "pl-backward": f"{aws_path}/embeddings/lm-polish-backward-v0.2.pt",
+            "pl-forward": f"{aws_path}/lm-polish-forward-v0.2.pt",
+            "pl-backward": f"{aws_path}/lm-polish-backward-v0.2.pt",
             "pl-opus-forward": f"{aws_path}/embeddings-stefan-it/lm-pl-opus-large-forward-v0.1.pt",
             "pl-opus-backward": f"{aws_path}/embeddings-stefan-it/lm-pl-opus-large-backward-v0.1.pt",
             # Portuguese

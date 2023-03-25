@@ -3,3 +3,4 @@ git+https://github.com/djstrong/flair.git@fixed-flair_embeddings
 jsonlines
 seqeval
 tensorboardX
+tokenizers==0.11.6
