@@ -141,6 +141,7 @@ class KText:
                         break
                 if not found_interpretation:
                     # print('NOT Found interp', file=sys.stderr)
+                    print('NOT: Token without manual marking', reference_token.save(), self.id, file=sys.stderr)
                     assert reference_interpretation.manual == True
                     token.interpretations.append(reference_interpretation)
                 found_token = True
