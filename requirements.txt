@@ -1,6 +1,6 @@
-transformers==2.4.1
+transformers
 git+https://github.com/djstrong/flair.git@fixed-flair_embeddings
 jsonlines
 seqeval
 tensorboardX
-tokenizers==0.11.6
+tokenizers
